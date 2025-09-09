@@ -1,0 +1,162 @@
+Here are the key points from this discussion:
+
+1. Logic Implementation:
+   - Implement logic for non-commitment/non-progressive, commitment, and progressive invoice lines.
+   - For commitment lines, group and sum values, and for progressive lines, order from lowest to highest amount.
+   - Zero-rated (amount = 0) usage lines should be suppressed.
+
+2. Prioritization:
+   - Commitment logic takes precedence over alternate description grouping if both apply.
+   - Grouping by alternate invoice description is only used if commitment logic does not apply.
+
+3. Progressive Tier Handling:
+   - For progressive pricing type, do not apply grouping logic; send lines as-is, ordered by amount (lowest to highest).
+   - If more than 21 tiers are present, further clarification is needed.
+
+4. Data Fields and Grouping:
+   - Use fields like group ID, commitment flag, pricing type, and service period for grouping and logic.
+   - For commitment, group by invoice number and DSL group, with quantity set to one and amount as the sum.
+
+5. Handling Special Cases:
+   - Remove zero-value lines before applying any logic.
+   - For credit notes, negative amounts should be handled as per requirements.
+
+6. Open Questions:
+   - Some points, such as the handling of more than 21 progressive tiers and the use of certain flags, require further clarification.
+
+7. Next Steps:
+   - Vinay to review the code and logic, write out the steps, and discuss any discrepancies or questions in the next meeting.
+
+Let me know if you need a more detailed breakdown or a specific section summarized!
+
+
+
+Here’s an example based on the discussion:
+
+Suppose you have the following invoice lines from BRM:
+
+| Line | Commitment Flag | Pricing Type  | Amount | Description         |
+|------|----------------|--------------|--------|---------------------|
+| 1    | 1              | Non-progressive | 1000   | Product A           |
+| 2    | 2              | Non-progressive | 2000   | Product A           |
+| 3    | 0              | Progressive     | 500    | Product B           |
+| 4    | 0              | Progressive     | 700    | Product B           |
+| 5    | 0              | Non-progressive | 0      | Product C (zero)    |
+
+Applying the discussed logic:
+- First, remove zero-value lines (Line 5 is suppressed).
+- For commitment lines (Lines 1 & 2, flag 1 or 2, non-progressive):
+  - Group by invoice number and group ID (if applicable).
+  - Quantity is set to 1.
+  - Amount is the sum: 1000 + 2000 = 3000.
+  - Output: 1 line for Product A, Quantity: 1, Amount: 3000.
+- For progressive lines (Lines 3 & 4, pricing type progressive):
+  - No grouping, just order by amount (lowest to highest).
+  - Output: Line 3 (500), then Line 4 (700).
+
+Final output to EIO:
+1. Product A (Commitment): Quantity 1, Amount 3000
+2. Product B (Progressive): Quantity as per original, Amount 500
+3. Product B (Progressive): Quantity as per original, Amount 700
+
+Let me know if you want a more detailed or different example!
+
+
+
+--- Action items
+
+Action Items
+[ ] @Vinay Kaveti - Implement the commitment line logic to summarize the lines and send a single line to the EIO.
+[ ] @Vinay Kaveti - Implement the progressive line logic to send the lines as-is, ordered from lowest to highest line amount.
+[ ] @Vinay Kaveti - Implement the logic to eliminate zero-value lines before applying any other logic.
+[ ] Follow up with the team to understand the scenario with more than 21 tiers.
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************
+
+
+
+
+
+Summary
+
+Commitment, progressive, and granted units in an email. 0:00
+
+Unknown Speaker discusses email about commitment, progressive, and granted units.
+
+Invoice grouping and prioritization for product descriptions. 2:22
+
+Unknown Speaker discusses AR extract process and grouping logic for invoices.
+
+Speaker prioritizes grouping logic based on product description, and handles alternative descriptions.
+
+Invoice pricing logic and alternate descriptions. 5:55
+
+Unknown Speaker discusses eliminating zero lines and grouping based on alternate descriptions in invoices.
+
+Vinay explains the logic for pricing types and commitment flags in the invoice, with three union-based queries.
+
+Logics, queries, and commitment levels in a program. 9:28
+
+Unknown Speaker discusses logics, attributes, and commitment lines in a program.
+
+Commitment levels and grouping for invoices. 11:33
+
+Unknown Speaker discusses commitment levels in invoices, explaining that one commitment level is for non-progressive invoices, while the other is for commitment but not progressive invoices.
+
+Speaker provides logic for grouping invoices based on commitment levels, including quantity and amount calculations.
+
+Commitment plans and line items with product descriptions. 15:11
+
+Unknown Speaker discusses commitment flags and groups, explaining how to calculate Line Amount and unit price.
+
+Speaker provides high-level description of commitment plan, highlighting importance of quantity, unit price, and line total.
+
+Database management and commitment plans for a software system. 20:02
+
+Unknown Speaker discusses database queries and commitment plans in Chile.
+
+Tire pricing and grouping logic for customer attributes. 23:23
+
+Unknown Speaker discusses tire grouping and pricing logic for progressive blocks, highlighting the importance of internal level and high tide level.
+
+Speaker provides examples of how to group lines based on invoice number, item description, group ID, and service period, with quantity adjustments for high tide level.
+
+Pricing and grouping for tires. 26:41
+
+Unknown Speaker: Progressive lines should be sent as is, without grouping.
+
+Sujit: Quantity one is not accepted by AD, so unit price should be populated.
+
+Vinay: Huge loss is applied for 3.2, but grouping logic is not required.
+
+Invoice calculation and potential discrepancies. 31:16
+
+Unknown Speaker: Showing line amounts and quantities to calculate total.
+
+Vinay: Explaining how to do reverse engineering for invoices.
+
+Sankar: Discussing concerns with sending quantities and unit prices.
+
+Invoice PDFs, commitment amounts, and group ID. 36:42
+
+The problem statement is that the invoice PDFs for commitment products display a single line with the total commitment amount, but the alternate description is not groupable.
+
+The solution is to remove the service period and do the remaining fields, but the group ID is not used for us.
+
+Invoice grouping and commitment with alternate description. 41:17
+
+Unknown Speaker discusses grouping logic for invoices based on alternate invoice description.
+
+Speaker explains how to handle commitment, progressive, and non-progressive items in groupings.
+
+Invoice lines, pre-rated flag, and Excel vendor calculation. 46:47
+
+Vinay and Venkat discuss invoice lines with zero amounts, pre-rated flags, and Excel vendor calculations.
+
+Progressive pricing with examples. 52:47
+
+Unknown Speaker discusses progressive pricing and display issues.
+
