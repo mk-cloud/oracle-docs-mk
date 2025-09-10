@@ -1,513 +1,306 @@
-CREATE OR REPLACE PACKAGE BODY      XXSRI_AGIS_INVOICE_DIAGNOSTICS IS
--- +===========================================================================================================+
--- | SunRun, Inc. 											                                            
--- | San Francisco, CA 										                                          
--- +============================================================================================================+
--- |                             											                                    
--- |Program Name : APPS.XXSRI_AGIS_INVOICE_DIAGNOSTICS      								               
--- |                                                                    						
--- | Description :  This is the package for Program SNRN: AGIS Invoice Analysis & Diagnosis
--- |                This program scans for various elibibility criteria and valid values                      
--- |                on AP side and AR side for a given AGIS Invoice   							     
--- |                                                                    										     
--- |Change Record:                                             										     
--- |===============                                  										    
--- |Version   Date         Author           Remarks                     								     
--- |=======   ==========  =============    ===================================================================== 	     
--- |1.0       04-0SEP-2020   Afzal Sharief     Initial code version    JIRA TICKET - ERPSUPPORT-10835                   
--- +============================================================================================================+
+PROCEDURE update_cai (
+    pcustomertrxid               IN NUMBER,
+    pdocumentid                  IN VARCHAR2,
+    pdocumentstatus              IN VARCHAR2,
+    presponsedate                IN VARCHAR2,
+    presultcode                  IN VARCHAR2,
+    psourcesystem                IN VARCHAR2,
+    ptaxagencydocobservations    IN VARCHAR2,
+    ptaxagencysequence           IN VARCHAR2,
+    pretcode                     OUT VARCHAR2,
+    xretcode                     OUT VARCHAR2,
+    xretmessage                  OUT VARCHAR2
+) AS
 
-
-
-   G_ERROR                VARCHAR2 (10) := 'ERROR';
-   G_SUCCESS              VARCHAR2 (10) := 'PROCESSED';
-   G_WARNING              VARCHAR2 (10) := 'WARNING';
-   --
-   G_USER_ID              NUMBER := Apps.Fnd_Global.User_Id;
-   G_ORG_ID               NUMBER := Apps.Fnd_Global.Org_Id;
-   G_REQUEST_ID           NUMBER := Apps.Fnd_Global.Conc_Request_Id;
-   G_PRG_APPL_ID          NUMBER := Apps.Fnd_Global.Prog_Appl_Id;
-   G_PROGRAM_ID           NUMBER := Apps.Fnd_Global.Conc_Program_Id;
-
-
-      --writes to concurrent output file
-      PROCEDURE print_out(p_str IN VARCHAR2) IS
-      BEGIN
-        fnd_file.put_line(fnd_file.OUTPUT, p_str);
-        dbms_output.put_line('Output :' || p_str);
-      END print_out;
+    lv_exists         NUMBER;
+    lv_trx_num        ra_customer_trx_all.trx_number%TYPE;
+    o_return_status   VARCHAR2(1);
+    o_msg_count       NUMBER;
+    o_msg_data        VARCHAR2(2000);
+    l_err_msg         VARCHAR2(1000);
+    l_msg_index_out   NUMBER;
+    lv_error_message  VARCHAR2(2000);
     
-      ------------------------------------------------------------------------------------------------------
-    
-      --writes to concurrent log file
-      PROCEDURE print_log(p_str IN VARCHAR2) IS
-      BEGIN
-        fnd_file.put_line(fnd_file.LOG, p_str);
-        dbms_output.put_line('Log :' || p_str);
-      END print_log;
-    
-    
-      PROCEDURE print_both(p_str IN VARCHAR2) IS
-      BEGIN
-        print_out(p_str);
-        print_log(p_str);
-      END print_both;
+    lv_mail_dl        VARCHAR2(2000);
+    lv_from           VARCHAR2(50) := 'oracle@equifax.com';
+    lv_recipient      VARCHAR2(2000);
+    lv_subject        VARCHAR2(300);
+    lv_mail_host      VARCHAR2(50) := 'mail.equifax.com';
+    lv_mail_conn      utl_smtp.connection;
+    lv_boundary       VARCHAR2(50) := '----*#abc1234321cba#*--';
+    lv_count          NUMBER := 1;
+    lv_count1         NUMBER := 1;
+    lv_val            NUMBER := 1;
+    lv_mail           VARCHAR2(4000);
+    lv_text_msg       VARCHAR2(200) := 'This is an automated email. Please donot reply to this mail';
+    raw_data_sub      RAW(500);
+    raw_data          RAW(32767);
+    raw_data_html     RAW(32767);
+    lv_instance       VARCHAR2(100);
+    lv_html           VARCHAR2(32767);
+    lv_html_tbl       VARCHAR2(2000);
+    lv_html_lines     VARCHAR2(20000);
+    lv_st_count       NUMBER;
+    lv_first          VARCHAR2(500);
+    lv_full           VARCHAR2(4000);
+    lv_temp           VARCHAR2(4000);
+    lv_request_id     NUMBER;
+    lv_trx_number     xxar_arg_afip_outbound_log.trx_number%TYPE;
+    lv_comments       xxar_arg_afip_outbound_log.comments%TYPE;
+    lv_afip_val_code  xxar_arg_afip_outbound_log.afip_val_code%TYPE;
+    lv_afip_val_msg   xxar_arg_afip_outbound_log.afip_val_msg%TYPE;
+    lv_source_system  xxar_arg_afip_outbound_log.source_system%TYPE;
+    lv_retry_ver      xxar_arg_afip_outbound_log.retry_version%TYPE;
+    lc_complete_flag  VARCHAR2(1);
 
-  
+BEGIN
+    lv_exists := 0;
     
-    FUNCTION get_user_name(
-        p_user_id fnd_user.user_id%TYPE
-    )
-    RETURN    fnd_user.user_name%TYPE  IS
-    l_user_name fnd_user.user_name%TYPE;
     BEGIN
-        SELECT user_name INTO l_user_name FROM fnd_user WHERE user_id = p_user_id;
-        RETURN l_user_name;
+        -- Check if transaction exists
+        SELECT COUNT(*)
+        INTO lv_exists,
+             lv_trx_num
+        FROM xxefx_ar_eio_chi_outbound_log
+        WHERE tracking_seq_num = pcustomertrxid
+        GROUP BY trx_number;
+        
     EXCEPTION
-    WHEN OTHERS THEN
-       RETURN 'EXCEPTION';
+        WHEN OTHERS THEN
+            xretcode := '400';
+            xretmessage := 'No AR transaction number exists in Oracle with Customer TRX ID: ' || pcustomertrxid;
     END;
     
-
-    PROCEDURE agis_invoice (
-         ERRBUFF               OUT     VARCHAR2
-        ,RETCODE               OUT     NUMBER
-        ,P_AP_INVOICE          IN      VARCHAR2 DEFAULT NULL
-        ) IS
-
- --       l_return_status varchar2(20) := FND_API.G_RET_STS_SUCCESS;
-        l_msg_count            NUMBER;
-        l_msg_data             VARCHAR2(2000);
-
-        
-        --____________________________________________________________________________
-        l_created_by                    fnd_user.user_name%TYPE;
-        
-        l_run_date                      fnd_concurrent_requests.actual_completion_date%TYPE;
-        l_request_id                    fnd_concurrent_requests.request_id%TYPE;
-        l_status                        fnd_concurrent_requests.completion_text%TYPE;
-        
-        l_trx_date                      ra_customer_trx_all.trx_date%TYPE;
-        
-        l_ap_trx_date                   ap_invoices_all.invoice_date%TYPE;
-        
-        l_external_bank_account_id      apps.ap_checks_all.external_bank_account_id%TYPE;
-        l_payment_date                  apps.ap_checks_all.check_date%TYPE;
-        l_payment_amount                apps.ap_checks_all.amount%TYPE;
-        l_bank_ac                       apps.ap_checks_all.bank_account_name%TYPE;
-           
-        l_bank_ac_num                   iby_ext_bank_accounts.bank_account_num%TYPE;
-        l_int_bank_ac_id                ce_bank_accounts.bank_account_id%TYPE;
-        l_receipt_name                  ar_receipt_methods.name%TYPE;
-                       
-                       
-        l_receipt_#    		            ar_cash_receipts_all.receipt_number%TYPE;
-        l_receipt_date                  ar_cash_receipts_all.receipt_date%TYPE;
-        l_receipt_amt                   ar_cash_receipts_all.amount%TYPE;
-        l_receipt_status                ar_cash_receipts_all.status%TYPE;
-        
-        
-        l_date_order                    VARCHAR2(1);
-        
-        l_min_period_dt                 gl_period_statuses.start_date%TYPE;
-        l_max_period_dt                 gl_period_statuses.end_date%TYPE;    
+    dbms_output.put_line('lv_exists ' || lv_exists);
     
-    BEGIN
-          
-  
-    print_both('Analysis & Diagnostics for Invoice #....'||p_ap_invoice);
-    print_both('');
-
-
-    BEGIN
-    
-    SELECT 
-    request_id "Request ID",
-    actual_completion_date "Actual Completion Dt",
-    completion_text "Status"
-    INTO
-    l_request_id, l_run_date, l_status 
-    FROM fnd_concurrent_requests req, fnd_concurrent_programs_tl conctl
-    WHERE req.concurrent_program_id  = conctl.concurrent_program_id
-    AND conctl.user_concurrent_program_name = 'SNRN: Auto Receipts for AGIS Invoices'
-    AND ROWNUM = 1
-    ORDER BY actual_completion_date DESC;
-    
-    print_both('LAST RUN: - Request ID, Run Date, Status ....'||l_request_id||', '||l_run_date||', '||l_status);
-    print_both('');
-
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-            print_both('NO program RUNS FOUND ** ');   
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY PROGRAM RUNS FOUND TODAY - ** ');   
-    WHEN OTHERS THEN
-            print_both('EXCEPTION 145');    
-    END;
-
-
-    BEGIN
-        l_trx_date := NULL;
-        print_both('');
-        print_both('(1) AR INVOICE :- ');
-        print_both('__________________');
-        print_both('');
+    IF lv_exists = 1 THEN
+        dbms_output.put_line(lv_trx_num || '(trx_id - ' || pcustomertrxid || ') Exists in Oracle');
         
-        SELECT trx_date, created_by INTO l_trx_date, l_created_by 
-        FROM ra_customer_trx_all 
-        WHERE trx_number = p_ap_invoice
-        AND status_trx = 'OP' AND nvl(complete_flag,'N') = 'Y';
+        /************************** Customer Update Based on Document Status **************************/
         
-        IF(l_trx_date IS NULL) THEN
-            print_both('NO AR INVOICE FOUND - ** F A I L E D ** ');
-        ELSE 
-            print_both('FOUND - ** P A S S E D ** ');
-            print_both('');
-            print_both('INVOICE-DATE, CREATED BY ........ '||l_trx_date||', '|| get_user_name(l_created_by));
-        END IF; 
-
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-            print_both('NO AR INVOICE FOUND - ** F A I L E D ** ');   
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY AR INVOICES FOUND - ** F A I L E D ** ');   
-    WHEN OTHERS THEN
-            print_both('EXCEPTION 175');    
-    END;
-    
-    BEGIN
-        l_ap_trx_date := NULL;
-        l_created_by := NULL;
-    
-        l_ap_trx_date := NULL;
-        l_created_by := NULL;
-        print_both('');
-        print_both('');
-        print_both('(2) PAYMENT CHECK :-');
-        print_both('_____________________');
-        print_both('');
-        
-        SELECT 
-        aia.invoice_date, aia.created_by
-        INTO l_ap_trx_date, l_created_by
-            FROM 
-            ap_invoice_payments_all app,
-            ap_invoices_all aia,
-            ar_payment_schedules_all psa,
-            ra_customer_trx_all rcta
-            WHERE 1=1
-            AND aia.invoice_num = p_ap_invoice
-            AND aia.pay_group_lookup_code = 'INTERCO' 
-            AND rcta.trx_number = aia.invoice_num
-            AND app.invoice_id = aia.invoice_id
-            AND rcta.customer_trx_id = psa.customer_trx_id
-            AND abs(app.amount - psa.amount_due_remaining) >= 0.05
-            AND NVL(app.reversal_flag,'X') <> 'Y';
+        -- Scenario #1: APPROVED Documents (APROBADO)
+        IF UPPER(pdocumentstatus) IN ('APPROVED', 'APROBADO') THEN
+            BEGIN
+                -- Update outbound log table for APPROVED status
+                UPDATE xxefx_ar_eio_chi_outbound_log
+                SET 
+                    document_id = pdocumentid,
+                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    sii_result_code = presultcode,
+                    sii_doc_status = 'APPROVED',
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'SII APPROVED'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                -- Update staging table for APPROVED status
+                UPDATE xxefx_ar_brm_chi_trx_int_stg
+                SET 
+                    document_id = pdocumentid,
+                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    sii_result_code = presultcode,
+                    sii_doc_status = 'APPROVED',
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'SII APPROVED'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                xretcode := '200';
+                xretmessage := 'Document APPROVED - Updates completed successfully';
+                
+            EXCEPTION
+                WHEN OTHERS THEN
+                    xretcode := '105';
+                    xretmessage := 'Exception in APPROVED status update: ' || sqlerrm;
+                    
+                    -- Update with EIO ERROR status in case of exception
+                    BEGIN
+                        UPDATE xxefx_ar_eio_chi_outbound_log
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                        
+                        UPDATE xxefx_ar_brm_chi_trx_int_stg
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            NULL; -- Ignore secondary errors
+                    END;
+            END;
             
-        IF(l_ap_trx_date IS NULL) THEN
-                print_both('NO PAYMENT FOUND OR PAYMENT IS ZERO AMOUNT - ** F A I L E D ** ');
-            ELSE 
-                print_both('PAYMENT FOUND AND IS NON-ZERO - ** P A S S E D **');
-                print_both('');
-                print_both('INVOICE-DATE, CREATED BY ........ '||l_trx_date||', '|| get_user_name(l_created_by));
-        END IF; 
-    
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('NO PAYMENT FOUND OR PAYMENT IS NOT ZERO AMOUNT - ** F A I L E D ** ');  
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY PAYMENT RECORDS FOUND - ** F A I L E D ** ');                   
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ......221 ');   
-    END;
-    
-    BEGIN
-
-        l_external_bank_account_id           := NULL;
-        l_payment_date                       := NULL;
-        l_payment_amount                     := NULL;
-        l_bank_ac                            := NULL;
-        print_both('');
-        print_both('');
-        print_both('(3) AP SIDE PAYMENT BANK AC AND PAYMENT AT LINE (CHECK) LEVEL :-');
-        print_both('________________________________________________________________');
-        print_both('');
-        SELECT 
-           apc.external_bank_account_id,
-           apc.check_date,
-           apc.amount,
-           apc.bank_account_name,
-           apc.created_by
-           INTO
-           l_external_bank_account_id, l_payment_date, l_payment_amount, l_bank_ac, l_created_by
-            FROM 
-            ap_invoices_all aia,
-            apps.ap_invoice_payments_all app,
-            apps.ap_checks_all apc
-            WHERE 1=1
-            AND aia.invoice_num = p_ap_invoice
-            AND aia.pay_group_lookup_code = 'INTERCO' 
-            AND aia.invoice_id = app.invoice_id
-            AND NVL(app.reversal_flag,'X') <> 'Y'
-            AND apc.void_date IS NULL
-            AND apc.check_id = app.check_id;
+        -- Scenario #2: REJECTED by Government
+        ELSIF UPPER(pdocumentstatus) = 'REJECTED' THEN
+            BEGIN
+                -- Update outbound log table for REJECTED status
+                UPDATE xxefx_ar_eio_chi_outbound_log
+                SET 
+                    document_id = pdocumentid,
+                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    sii_result_code = presultcode,
+                    sii_doc_status = 'REJECTED',
+                    sii_reject_entity = 'GOVT',
+                    sii_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'SII REJECTED'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                -- Update staging table for REJECTED status
+                UPDATE xxefx_ar_brm_chi_trx_int_stg
+                SET 
+                    document_id = pdocumentid,
+                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    sii_result_code = presultcode,
+                    sii_doc_status = 'REJECTED',
+                    sii_reject_entity = 'GOVT',
+                    sii_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'SII REJECTED'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                xretcode := '200';
+                xretmessage := 'Document REJECTED by Government - Updates completed successfully';
+                
+            EXCEPTION
+                WHEN OTHERS THEN
+                    xretcode := '105';
+                    xretmessage := 'Exception in REJECTED status update: ' || sqlerrm;
+                    
+                    -- Update with EIO ERROR status in case of exception
+                    BEGIN
+                        UPDATE xxefx_ar_eio_chi_outbound_log
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                        
+                        UPDATE xxefx_ar_brm_chi_trx_int_stg
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            NULL; -- Ignore secondary errors
+                    END;
+            END;
             
-        IF(l_external_bank_account_id IS NULL) THEN
-                print_both('NO AP SIDE PAYMENT BANK ACCOUNT OR PAYMENT NOT AT CHECK LEVEL - ** F A I L E D ** ');
-            ELSE 
-                print_both('PAYMENT BANK ACCOUNT FOUND ON AP SIDE AND PAYMENT AT CHECK LEVEL FOUND- ** P A S S E D ** ');
-                print_both('');
-                print_both('EXTERNAL BANK AC ID, PAYMENT DATE, PAYMENT AMOUNT, BANK ACCOUNT ........ '||
-                l_external_bank_account_id||', '|| l_payment_date||', '||l_payment_amount||', '||l_bank_ac);
-                print_both('CREATED BY ........ '||get_user_name(l_created_by));
-        END IF; 
-    
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('NO AP SIDE PAYMENT BANK ACCOUNT OR PAYMENT NOT AT CHECK LEVEL - ** F A I L E D ** ');
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY CHECK LEVEL PAYMENT RECORDS FOUND - ** F A I L E D ** ');         
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ...... 271');   
-    END;
-    
-    
-    BEGIN
-
-        l_bank_ac_num           := NULL;
-        l_created_by            := NULL;
-
-        print_both('');
-        print_both('');
-        print_both('(4) AP SIDE SUPPLIER AND BANK ACCOUNTS MAPPING :-');
-        print_both('_________________________________________________');
-        print_both('');
+        -- Scenario #3: REJECTED by Customer
+        ELSIF UPPER(pdocumentstatus) = 'CUSTOMER_REJECTED' THEN
+            BEGIN
+                -- Update outbound log table for Customer rejection
+                UPDATE xxefx_ar_eio_chi_outbound_log
+                SET 
+                    document_id = pdocumentid,
+                    cust_reject_entity = 'CUSTOMER',
+                    cust_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    cust_reject_reason = 'Product not correct',
+                    cust_record_status = 'NEW / COMPLETED',
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'SII REJECTED'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                -- Update staging table for Customer rejection
+                UPDATE xxefx_ar_brm_chi_trx_int_stg
+                SET 
+                    document_id = pdocumentid,
+                    cust_reject_entity = 'CUSTOMER',
+                    cust_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    cust_reject_reason = 'Product not correct',
+                    cust_record_status = 'NEW / COMPLETED',
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'SII REJECTED'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                xretcode := '200';
+                xretmessage := 'Document REJECTED by Customer - Updates completed successfully';
+                
+            EXCEPTION
+                WHEN OTHERS THEN
+                    xretcode := '105';
+                    xretmessage := 'Exception in Customer rejection update: ' || sqlerrm;
+                    
+                    -- Update with EIO ERROR status in case of exception
+                    BEGIN
+                        UPDATE xxefx_ar_eio_chi_outbound_log
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                        
+                        UPDATE xxefx_ar_brm_chi_trx_int_stg
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            NULL; -- Ignore secondary errors
+                    END;
+            END;
+            
+        -- Handle any other status
+        ELSE
+            BEGIN
+                -- Update with basic information for unknown status
+                UPDATE xxefx_ar_eio_chi_outbound_log
+                SET 
+                    document_id = pdocumentid,
+                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    sii_result_code = presultcode,
+                    sii_doc_status = pdocumentstatus,
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'EIO ERROR'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                UPDATE xxefx_ar_brm_chi_trx_int_stg
+                SET 
+                    document_id = pdocumentid,
+                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    sii_result_code = presultcode,
+                    sii_doc_status = pdocumentstatus,
+                    source_system = psourcesystem,
+                    invoice_error_desc = ptaxagencydocobservations,
+                    eio_reced_status = 'Y',
+                    record_status = 'EIO ERROR'
+                WHERE tracking_seq_num = pcustomertrxid;
+                
+                xretcode := '200';
+                xretmessage := 'Document status: ' || pdocumentstatus || ' - Basic updates completed';
+                
+            EXCEPTION
+                WHEN OTHERS THEN
+                    xretcode := '105';
+                    xretmessage := 'Exception in general status update: ' || sqlerrm;
+                    
+                    -- Update with EIO ERROR status in case of exception
+                    BEGIN
+                        UPDATE xxefx_ar_eio_chi_outbound_log
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                        
+                        UPDATE xxefx_ar_brm_chi_trx_int_stg
+                        SET record_status = 'EIO ERROR'
+                        WHERE tracking_seq_num = pcustomertrxid;
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            NULL; -- Ignore secondary errors
+                    END;
+            END;
+            
+        END IF;
         
-        SELECT iby.bank_account_num, iby.created_by
-        INTO   l_bank_ac_num, l_created_by
-        FROM iby_ext_bank_accounts iby
-        WHERE iby.ext_bank_account_id = l_external_bank_account_id;
-            
-        IF(l_bank_ac_num IS NULL) THEN
-                print_both('NO AP SIDE SUPPLIER AND BANK ACCOUNTS MAPPING - ** F A I L E D ** ');
-            ELSE 
-                print_both('AP SIDE SUPPLIER AND BANK ACCOUNTS MAPPING FOUND- ** P A S S E D ** ');
-                print_both('');
-                print_both('BANK ACCOUNT NUMBER... '||
-                l_bank_ac_num);
-                print_both('CREATED BY ........ '||get_user_name(l_created_by));
-        END IF; 
+    END IF;
     
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('NO AP SIDE SUPPLIER AND BANK ACCOUNTS MAPPING FOUND - ** F A I L E D ** ');
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY AP SIDE SUPPLIER AND BANK ACCOUNTS MAPPING FOUND - ** F A I L E D ** ');   
+    xretcode := '200';
+    xretmessage := 'OK';
+    
+EXCEPTION
     WHEN OTHERS THEN
-            print_both('EXCEPTION ......307 ');   
-    END;
-    
-    BEGIN
- 
-        l_int_bank_ac_id            := NULL;
-        l_created_by                := NULL;
-
-        print_both('');
-        print_both('');
-        print_both('(5) AR SIDE INTERNAL BANK ACCOUNT CHECK :-');
-        print_both('__________________________________________');
-        print_both('');
+        xretcode := '401';
+        xretmessage := 'Unexpected Error updating the CAI Details: ' || sqlcode || ' - ' || sqlerrm;
         
-        SELECT 
-        ceb.bank_account_id, ceb.created_by
-        INTO l_int_bank_ac_id, l_created_by
-        FROM
-        ce_bank_accounts ceb
-        WHERE 
-        ceb.bank_account_num = l_bank_ac_num
-        AND ceb.end_date IS NULL;
-            
-        IF(l_int_bank_ac_id IS NULL) THEN
-                print_both('NO AR SIDE INTERNAL BANK ACCOUNT FOUND - ** F A I L E D ** ');
-            ELSE 
-                print_both('AR SIDE INTERNAL BANK ACCOUNT FOUND- ** P A S S E D ** ');
-                print_both('');
-                print_both('INTERNAL BANK AC ID.... '||
-                l_int_bank_ac_id);
-                print_both('CREATED BY ........ '||get_user_name(l_created_by));
-        END IF; 
-    
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('NO AR SIDE INTERNAL BANK ACCOUNT FOUND  - ** F A I L E D ** ');
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY AR SIDE INTERNAL BANK ACCOUNTS FOUND - ** F A I L E D ** ');                   
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ......346 ');   
-    END;
-    
-    BEGIN
-
-        print_both('');
-        print_both('');
-        print_both('(6) DATES SEQUENCE AND ORDER :-');
-        print_both('_______________________________');
-        print_both('');
-
-        IF (l_payment_date IS NOT NULL AND l_trx_date IS NOT NULL AND l_ap_trx_date IS NOT NULL) THEN
-            print_both('');
-            print_both('PAYMENT DATE , AR INVOICE DATE, AP INVOICE DATE... '||
-            l_payment_date||', '|| l_trx_date||', '||l_ap_trx_date);
-            print_both('');
-            SELECT 'X' INTO l_date_order FROM DUAL
-            WHERE ((l_payment_date >= l_trx_date) AND (l_trx_date >= l_ap_trx_date));
-        
-            IF(l_date_order = 'X') THEN
-                print_both('PAYMENT DATE >= AR INVOICE DATE >= AP INVOICE DATE - ** P A S S E D ** ');
-            ELSE 
-               print_both('FAILED FOR - PAYMENT DATE >= AR INVOICE DATE >= AP INVOICE DT - ** F A I L E D ** ');
-            END IF;   
-        END IF; 
-    
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('FAILED FOR - PAYMENT DATE >= AR INVOICE DATE >= AP INVOICE DT - ** F A I L E D ** ');  
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ......376 ');   
-    END;
-    
-   BEGIN
-
-        l_receipt_name              := NULL;
-        l_created_by                := NULL;
-
-        print_both('');
-        print_both('');
-        print_both('(7) PAYMENT DATE AND OPEN PERIODS CHECK :-');
-        print_both('__________________________________________');
-        print_both('');
-        print_both('PAYMENT DATE ... '||l_payment_date);
-        print_both('');         
-        SELECT 
-        MIN(gps.start_date), MAX(gps.end_date)
-        INTO l_min_period_dt, l_max_period_dt
-        FROM gl.gl_period_statuses gps,
-        gl.gl_ledgers gls
-        WHERE 1=1
-        AND gps.closing_status IN ('O','F')
-        AND gps.application_id = 222
-        AND gls.NAME = 'US PRIMARY 3'
-        AND gls.ledger_id = gps.set_of_books_id;
-            
-        IF(l_payment_date >= l_min_period_dt AND l_payment_date <= l_max_period_dt) THEN
-                print_both('PAYMENT DATE IS WITHIN OPEN PERIOD(S) - ** P A S S E D ** ');
-            ELSE 
-                print_both('PAYMENT DATE IS NOT WITHIN OPEN PERIOD(S) - ** F A I L E D ** ');
-                print_both('');
-        END IF; 
-    
-    EXCEPTION                
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ......411 ');   
-    END;    
-    
-   BEGIN
-
-        l_receipt_name              := NULL;
-        l_created_by                := NULL;
-
-        print_both('');
-        print_both('');
-        print_both('(8) RECEIPT METHOD CHECK :-');
-        print_both('___________________________');
-        print_both('');
-        
-        SELECT 
-        arm.name, arm.created_by
-        INTO l_receipt_name, l_created_by
-        FROM
-        ce_bank_acct_uses_all cbau,
-        ar_receipt_method_accounts_all arma,
-        ar_receipt_methods arm
-        WHERE 1=1
-        AND cbau.bank_account_id =  l_int_bank_ac_id
-        AND cbau.end_date IS NULL
-        AND cbau.bank_acct_use_id = arma.remit_bank_acct_use_id 
-        AND arma.end_date IS NULL
-        AND arma.receipt_method_id = arm.receipt_method_id;
-            
-        IF(l_receipt_name IS NULL) THEN
-                print_both('NO RECEIPT METHOD FOUND - ** F A I L E D ** ');
-            ELSE 
-                print_both('RECEIPT METHOD FOUND- ** P A S S E D ** ');
-                print_both('');
-                print_both('RECEIPT METHOD..... '||
-                l_receipt_name);
-                print_both('CREATED BY ........ '||get_user_name(l_created_by));
-        END IF; 
-    
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('NO RECEIPT METHOD - ** F A I L E D ** ');
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY RECEIPT METHODS FOUND - ** F A I L E D ** ');                 
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ...... 455');   
-    END;    
-    
-  BEGIN
-
-        l_receipt_#             := NULL;
-        l_receipt_date          := NULL;
-        l_receipt_amt           := NULL;
-        l_receipt_status        := NULL;
-        l_created_by            := NULL;
-
-        print_both('');
-        print_both('');
-        print_both('(9) EXISTING RECEIPT CHECK :-');
-        print_both('_____________________________');
-        print_both('');
-        
-        SELECT 
-        acra.receipt_number, 
-        acra.receipt_date,
-        acra.amount,
-        acra.status,
-        acra.created_by
-        INTO l_receipt_#, l_receipt_date, l_receipt_amt, l_receipt_status, l_created_by
-        FROM
-        ar_receivable_applications_all araa,
-        ar_cash_receipts_all acra,
-        ra_customer_trx_all rcta
-        WHERE 1=1
-        AND rcta.trx_number = p_ap_invoice
-        AND araa.applied_customer_trx_id = rcta.customer_trx_id
-        AND araa.application_type = 'CASH'
-        AND araa.display = 'Y'
-        AND araa.cash_receipt_id = acra.cash_receipt_id
-        AND reversal_date IS NULL;        
-            
-        IF(l_receipt_# IS NOT NULL) THEN
-                print_both('EXISTING RECEIPT FOUND - ** F A I L E D ** ');
-                print_both('');
-                print_both('RECEIPT #, RECEIPT DATE, AMOUNT, STATUS ........ '||
-                l_receipt_#||', '|| l_receipt_date||', '||l_receipt_amt||', '||l_receipt_status);
-                print_both('CREATED BY ........ '||get_user_name(l_created_by));
-            ELSE 
-                print_both('NO EXISTING RECEIPT FOUND- ** P A S S E D ** ');
-        END IF; 
-    
-    EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-                print_both('NO EXISTING RECEIPT FOUND- ** P A S S E D ** ');
-    WHEN TOO_MANY_ROWS THEN
-            print_both('TOO MANY RECEIPTS FOUND - ** F A I L E D ** '); 
-    WHEN OTHERS THEN
-            print_both('EXCEPTION ...... 507');   
-    END;    
-    
-    END agis_invoice;
-
-END;                                                                 --package
-/
+END update_cai;
