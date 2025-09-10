@@ -1,0 +1,126 @@
+-- Invoice Line Processing Logic Implementation
+-- Based on commitment, progressive, and non-progressive pricing types
+
+WITH filtered_lines AS (
+  -- Step 1: Remove zero-value lines
+  SELECT *
+  FROM invoice_lines
+  WHERE amount != 0
+),
+
+commitment_lines AS (
+  -- Step 2: Process commitment lines (commitment_flag IN (1,2) AND pricing_type = 'Non-progressive')
+  SELECT 
+    invoice_number,
+    dsl_group_id,
+    product_description,
+    1 as quantity,  -- Always set to 1 for commitment
+    SUM(amount) as amount,
+    'COMMITMENT' as line_type,
+    service_period,
+    alternate_description
+  FROM filtered_lines
+  WHERE commitment_flag IN (1, 2) 
+    AND pricing_type = 'Non-progressive'
+  GROUP BY invoice_number, dsl_group_id, product_description, service_period, alternate_description
+),
+
+progressive_lines AS (
+  -- Step 3: Process progressive lines (pricing_type = 'Progressive')
+  -- Send as-is, ordered by amount (lowest to highest)
+  SELECT 
+    invoice_number,
+    dsl_group_id,
+    product_description,
+    original_quantity as quantity,
+    amount,
+    'PROGRESSIVE' as line_type,
+    service_period,
+    alternate_description,
+    ROW_NUMBER() OVER (PARTITION BY invoice_number ORDER BY amount ASC) as tier_order
+  FROM filtered_lines
+  WHERE pricing_type = 'Progressive'
+),
+
+non_progressive_non_commitment AS (
+  -- Step 4: Process non-progressive, non-commitment lines
+  -- Group by alternate_description if available, otherwise by product_description
+  SELECT 
+    invoice_number,
+    dsl_group_id,
+    COALESCE(alternate_description, product_description) as product_description,
+    SUM(original_quantity) as quantity,
+    SUM(amount) as amount,
+    'NON_PROGRESSIVE' as line_type,
+    service_period,
+    alternate_description
+  FROM filtered_lines
+  WHERE commitment_flag NOT IN (1, 2) 
+    AND pricing_type = 'Non-progressive'
+  GROUP BY 
+    invoice_number, 
+    dsl_group_id, 
+    COALESCE(alternate_description, product_description),
+    service_period,
+    alternate_description
+)
+
+-- Final output combining all processed lines
+SELECT 
+  invoice_number,
+  dsl_group_id,
+  product_description,
+  quantity,
+  amount,
+  CASE 
+    WHEN quantity > 0 THEN amount / quantity 
+    ELSE 0 
+  END as unit_price,
+  line_type,
+  service_period
+FROM (
+  -- Union all processed line types
+  SELECT * FROM commitment_lines
+  UNION ALL
+  SELECT invoice_number, dsl_group_id, product_description, quantity, amount, line_type, service_period, alternate_description FROM progressive_lines
+  UNION ALL
+  SELECT * FROM non_progressive_non_commitment
+) final_lines
+ORDER BY 
+  invoice_number,
+  CASE line_type 
+    WHEN 'COMMITMENT' THEN 1 
+    WHEN 'NON_PROGRESSIVE' THEN 2 
+    WHEN 'PROGRESSIVE' THEN 3 
+  END,
+  CASE WHEN line_type = 'PROGRESSIVE' THEN amount END ASC;
+
+-- Sample Data and Expected Results
+-- ================================
+
+/* 
+INPUT SAMPLE DATA:
+| Line | Invoice_Number | Commitment_Flag | Pricing_Type    | Amount | Product_Description | DSL_Group_ID | Original_Quantity | Service_Period | Alternate_Description |
+|------|----------------|-----------------|-----------------|--------|--------------------|--------------|--------------------|----------------|-----------------------|
+| 1    | INV001         | 1               | Non-progressive | 1000   | Product A          | GRP1         | 2                  | 2024-01       | Alt Desc A           |
+| 2    | INV001         | 2               | Non-progressive | 2000   | Product A          | GRP1         | 3                  | 2024-01       | Alt Desc A           |
+| 3    | INV001         | 0               | Progressive     | 500    | Product B          | GRP2         | 1                  | 2024-01       | NULL                 |
+| 4    | INV001         | 0               | Progressive     | 700    | Product B          | GRP2         | 1                  | 2024-01       | NULL                 |
+| 5    | INV001         | 0               | Non-progressive | 0      | Product C          | GRP3         | 1                  | 2024-01       | NULL                 |
+| 6    | INV001         | 0               | Non-progressive | 800    | Product D          | GRP4         | 2                  | 2024-01       | Alt Desc D           |
+| 7    | INV001         | 0               | Non-progressive | 1200   | Product E          | GRP5         | 4                  | 2024-01       | Alt Desc D           |
+
+EXPECTED OUTPUT:
+| Invoice_Number | DSL_Group_ID | Product_Description | Quantity | Amount | Unit_Price | Line_Type      | Service_Period |
+|----------------|--------------|--------------------|---------:|-------:|-----------:|----------------|----------------|
+| INV001         | GRP1         | Product A          |        1 |   3000 |       3000 | COMMITMENT     | 2024-01        |
+| INV001         | GRP4         | Alt Desc D         |        6 |   2000 |     333.33 | NON_PROGRESSIVE| 2024-01        |
+| INV001         | GRP2         | Product B          |        1 |    500 |        500 | PROGRESSIVE    | 2024-01        |
+| INV001         | GRP2         | Product B          |        1 |    700 |        700 | PROGRESSIVE    | 2024-01        |
+
+LOGIC APPLIED:
+1. Line 5 removed (zero amount)
+2. Lines 1&2: Commitment lines grouped and summed (3000 total, quantity=1)
+3. Lines 3&4: Progressive lines sent as-is, ordered by amount (500, then 700)
+4. Lines 6&7: Non-commitment, non-progressive grouped by alternate_description (Alt Desc D)
+*/
