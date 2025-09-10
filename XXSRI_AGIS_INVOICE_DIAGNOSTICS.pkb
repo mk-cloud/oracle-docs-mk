@@ -78,29 +78,17 @@ BEGIN
         
         /************************** Customer Update Based on Document Status **************************/
         
-        -- Scenario #1: APPROVED Documents (APROBADO)
+        -- Scenario #1: SII APPROVED Documents (APROBADO)
         IF UPPER(pdocumentstatus) IN ('APPROVED', 'APROBADO') THEN
             BEGIN
-                -- Update outbound log table for APPROVED status
-                UPDATE xxefx_ar_eio_chi_outbound_log
-                SET 
-                    document_id = pdocumentid,
-                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
-                    sii_result_code = presultcode,
-                    sii_doc_status = 'APPROVED',
-                    source_system = psourcesystem,
-                    invoice_error_desc = ptaxagencydocobservations,
-                    eio_reced_status = 'Y',
-                    record_status = 'SII APPROVED'
-                WHERE tracking_seq_num = pcustomertrxid;
-                
-                -- Update staging table for APPROVED status
+                -- Update staging table for SII APPROVED status
                 UPDATE xxefx_ar_brm_chi_trx_int_stg
                 SET 
                     document_id = pdocumentid,
                     sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
                     sii_result_code = presultcode,
-                    sii_doc_status = 'APPROVED',
+                    sii_doc_status = pdocumentstatus,
+                    sii_caf_number = ptaxagencysequence,
                     source_system = psourcesystem,
                     invoice_error_desc = ptaxagencydocobservations,
                     eio_reced_status = 'Y',
@@ -108,19 +96,15 @@ BEGIN
                 WHERE tracking_seq_num = pcustomertrxid;
                 
                 xretcode := '200';
-                xretmessage := 'Document APPROVED - Updates completed successfully';
+                xretmessage := 'Document SII APPROVED - Updates completed successfully';
                 
             EXCEPTION
                 WHEN OTHERS THEN
                     xretcode := '105';
-                    xretmessage := 'Exception in APPROVED status update: ' || sqlerrm;
+                    xretmessage := 'Exception in SII APPROVED status update: ' || sqlerrm;
                     
                     -- Update with EIO ERROR status in case of exception
                     BEGIN
-                        UPDATE xxefx_ar_eio_chi_outbound_log
-                        SET record_status = 'EIO ERROR'
-                        WHERE tracking_seq_num = pcustomertrxid;
-                        
                         UPDATE xxefx_ar_brm_chi_trx_int_stg
                         SET record_status = 'EIO ERROR'
                         WHERE tracking_seq_num = pcustomertrxid;
@@ -130,32 +114,18 @@ BEGIN
                     END;
             END;
             
-        -- Scenario #2: REJECTED by Government
+        -- Scenario #2: SII REJECTED by Government
         ELSIF UPPER(pdocumentstatus) = 'REJECTED' THEN
             BEGIN
-                -- Update outbound log table for REJECTED status
-                UPDATE xxefx_ar_eio_chi_outbound_log
-                SET 
-                    document_id = pdocumentid,
-                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
-                    sii_result_code = presultcode,
-                    sii_doc_status = 'REJECTED',
-                    sii_reject_entity = 'GOVT',
-                    sii_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
-                    source_system = psourcesystem,
-                    invoice_error_desc = ptaxagencydocobservations,
-                    eio_reced_status = 'Y',
-                    record_status = 'SII REJECTED'
-                WHERE tracking_seq_num = pcustomertrxid;
-                
-                -- Update staging table for REJECTED status
+                -- Update staging table for SII REJECTED status
                 UPDATE xxefx_ar_brm_chi_trx_int_stg
                 SET 
                     document_id = pdocumentid,
                     sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
                     sii_result_code = presultcode,
-                    sii_doc_status = 'REJECTED',
-                    sii_reject_entity = 'GOVT',
+                    sii_doc_status = pdocumentstatus,
+                    sii_caf_number = ptaxagencysequence,
+                    sii_reject_entity = substr(psourcesystem, 1, 150),
                     sii_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
                     source_system = psourcesystem,
                     invoice_error_desc = ptaxagencydocobservations,
@@ -164,19 +134,15 @@ BEGIN
                 WHERE tracking_seq_num = pcustomertrxid;
                 
                 xretcode := '200';
-                xretmessage := 'Document REJECTED by Government - Updates completed successfully';
+                xretmessage := 'Document SII REJECTED - Updates completed successfully';
                 
             EXCEPTION
                 WHEN OTHERS THEN
                     xretcode := '105';
-                    xretmessage := 'Exception in REJECTED status update: ' || sqlerrm;
+                    xretmessage := 'Exception in SII REJECTED status update: ' || sqlerrm;
                     
                     -- Update with EIO ERROR status in case of exception
                     BEGIN
-                        UPDATE xxefx_ar_eio_chi_outbound_log
-                        SET record_status = 'EIO ERROR'
-                        WHERE tracking_seq_num = pcustomertrxid;
-                        
                         UPDATE xxefx_ar_brm_chi_trx_int_stg
                         SET record_status = 'EIO ERROR'
                         WHERE tracking_seq_num = pcustomertrxid;
@@ -186,51 +152,30 @@ BEGIN
                     END;
             END;
             
-        -- Scenario #3: REJECTED by Customer
+        -- Scenario #3: CUSTOMER REJECTED
         ELSIF UPPER(pdocumentstatus) = 'CUSTOMER_REJECTED' THEN
             BEGIN
-                -- Update outbound log table for Customer rejection
-                UPDATE xxefx_ar_eio_chi_outbound_log
-                SET 
-                    document_id = pdocumentid,
-                    cust_reject_entity = 'CUSTOMER',
-                    cust_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
-                    cust_reject_reason = 'Product not correct',
-                    cust_record_status = 'NEW / COMPLETED',
-                    source_system = psourcesystem,
-                    invoice_error_desc = ptaxagencydocobservations,
-                    eio_reced_status = 'Y',
-                    record_status = 'SII REJECTED'
-                WHERE tracking_seq_num = pcustomertrxid;
-                
-                -- Update staging table for Customer rejection
+                -- Update staging table for Customer rejection - Only Customer fields
                 UPDATE xxefx_ar_brm_chi_trx_int_stg
                 SET 
-                    document_id = pdocumentid,
-                    cust_reject_entity = 'CUSTOMER',
-                    cust_reject_date = to_date(presponsedate, 'YYYY-MM-DD'),
-                    cust_reject_reason = 'Product not correct',
-                    cust_record_status = 'NEW / COMPLETED',
+                    customer_response = 'REJECTED',
+                    customer_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
+                    customer_rejection_reason = ptaxagencydocobservations,
                     source_system = psourcesystem,
-                    invoice_error_desc = ptaxagencydocobservations,
                     eio_reced_status = 'Y',
                     record_status = 'SII REJECTED'
                 WHERE tracking_seq_num = pcustomertrxid;
                 
                 xretcode := '200';
-                xretmessage := 'Document REJECTED by Customer - Updates completed successfully';
+                xretmessage := 'Document CUSTOMER REJECTED - Updates completed successfully';
                 
             EXCEPTION
                 WHEN OTHERS THEN
                     xretcode := '105';
-                    xretmessage := 'Exception in Customer rejection update: ' || sqlerrm;
+                    xretmessage := 'Exception in CUSTOMER REJECTED status update: ' || sqlerrm;
                     
                     -- Update with EIO ERROR status in case of exception
                     BEGIN
-                        UPDATE xxefx_ar_eio_chi_outbound_log
-                        SET record_status = 'EIO ERROR'
-                        WHERE tracking_seq_num = pcustomertrxid;
-                        
                         UPDATE xxefx_ar_brm_chi_trx_int_stg
                         SET record_status = 'EIO ERROR'
                         WHERE tracking_seq_num = pcustomertrxid;
@@ -244,18 +189,6 @@ BEGIN
         ELSE
             BEGIN
                 -- Update with basic information for unknown status
-                UPDATE xxefx_ar_eio_chi_outbound_log
-                SET 
-                    document_id = pdocumentid,
-                    sii_response_date = to_date(presponsedate, 'YYYY-MM-DD'),
-                    sii_result_code = presultcode,
-                    sii_doc_status = pdocumentstatus,
-                    source_system = psourcesystem,
-                    invoice_error_desc = ptaxagencydocobservations,
-                    eio_reced_status = 'Y',
-                    record_status = 'EIO ERROR'
-                WHERE tracking_seq_num = pcustomertrxid;
-                
                 UPDATE xxefx_ar_brm_chi_trx_int_stg
                 SET 
                     document_id = pdocumentid,
@@ -278,10 +211,6 @@ BEGIN
                     
                     -- Update with EIO ERROR status in case of exception
                     BEGIN
-                        UPDATE xxefx_ar_eio_chi_outbound_log
-                        SET record_status = 'EIO ERROR'
-                        WHERE tracking_seq_num = pcustomertrxid;
-                        
                         UPDATE xxefx_ar_brm_chi_trx_int_stg
                         SET record_status = 'EIO ERROR'
                         WHERE tracking_seq_num = pcustomertrxid;
