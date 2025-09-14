@@ -1,0 +1,59 @@
+MD120 Technical Migration Document
+REST API Code Migration in Oracle E-Business Suite (User Training Version)
+
+1. Objective
+To migrate and register the custom REST API (xxar_arg_afip_val_pkg.pls) in Oracle E-Business Suite using Integrated SOA Gateway, ensuring secure and accessible API operations. This document includes step-by-step screenshots for user training.
+
+2. Migration Steps
+2.1. Package Preparation and Compilation
+- Place xxar_arg_afip_val_pkg.pls in the /tmp directory on the target server.
+- Compile the PL/SQL package and generate the .ildt file:
+    $IAS_ORACLE_HOME/perl/bin/perl $FND_TOP/bin/irep_parser.pl -g -v -username=sysadmin ar:patch/115/sql:xxar_arg_afip_val_pkg.pls:12.0=/tmp/xxar_arg_afip_val_pkg.pls
+  [Insert Screenshot 1: Perl command execution in terminal]
+- Load the .ildt file to Oracle EBS using FNDLOAD:
+    $FND_TOP/bin/FNDLOAD apps/<APPS_PWD> 0 Y UPLOAD $FND_TOP/patch/115/import/wfirep.lct xxar_arg_afip_val_pkg_pls.ildt
+  [Insert Screenshot 2: FNDLOAD command execution in terminal]
+
+2.2. Register and Deploy REST API in Oracle EBS
+- Login to Oracle EBS (SYSADMIN username).
+  [Insert Screenshot 3: Oracle EBS login screen]
+- Navigate to Integrated SOA Gateway Responsibility.
+  Path: Integration Repository → Search
+  [Insert Screenshot 4: Navigation to Integrated SOA Gateway]
+- Search for the API.
+  Enter XXAR_ARG_AFIP_VAL% in the Internal Name field and click 'GO'.
+  [Insert Screenshot 5: Search field and result list]
+- Select the appropriate API link.
+  [Insert Screenshot 6: Selection of API link]
+- REST API Service Tab.
+  Enter the service alias name.
+  Select the service operations check box.
+  Click 'Deploy'.
+  [Insert Screenshot 7: REST API Service tab, alias entry, operations selection, and Deploy button]
+- Grant Tab.
+  Click 'Create Grant'.
+  Select 'specific user' and click the search symbol.
+  Select the user as 'code', enter the application user name, and click 'Apply'.
+  [Insert Screenshot 8: Grant tab, Create Grant, user selection, and Apply button]
+
+3. Validation
+- Confirm the new REST API is visible in the Integration Repository.
+- Test the REST API endpoint to ensure it works as expected.
+- Verify user access by executing sample operations.
+  [Insert Screenshot 9: API in Integration Repository after deployment]
+
+4. Rollback Steps
+- Remove the API service from the Integration Repository if needed.
+- Revoke user grants from the 'Grant' tab.
+
+5. References
+- Oracle E-Business Suite Integrated SOA Gateway User's Guide
+- Oracle FNDLOAD and IREP_PARSER Documentation
+
+Prepared By: mk-cloud
+Date: 2025-09-14
+
+Instructions:
+- Replace all screenshot placeholders with your actual screenshots.
+- Update commands and navigation if your environment differs.
+- Save and share with your team for training and audit purposes.
