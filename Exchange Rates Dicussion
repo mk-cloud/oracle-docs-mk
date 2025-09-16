@@ -1,3 +1,17 @@
+Detailed Summary:
+The team discussed enhancements to the currency exchange rate process, focusing on incorporating the Chilean peso (CLP) and potentially other LATAM currencies (like DOP and Paraguay) into the existing exchange rate update program. The current API supports fetching exchange rates between a source and a destination currency for a specified date range, but only one pair per call. The team proposed modifying the program to loop through a lookup list of required currencies, calling the API for each, and storing the results in the GL rates table without overwriting existing data. The need for flexibility to add more currencies in the future was emphasized. There was also discussion about sharing and reviewing the program details to ensure the changes are feasible and efficient.
+
+Action Items:
+1. Update the existing exchange rate program to handle the Chilean peso (CLP) in addition to the Dominican peso (DOP), and ensure it can be extended for other LATAM currencies in the future.
+2. Modify the program logic to use a lookup list of destination currencies, looping through each and calling the API with the following parameters: source currency, destination currency, start date, and end date.
+3. Ensure the program stores the fetched exchange rates in the GL rates table, taking care not to overwrite existing data.
+4. Share the current program details with the team for review and feedback.
+5. Coordinate with Gautam to confirm the status and readiness of the exchange rate API for the Chilean peso.
+6. Discuss and finalize the design for updating the GL rate table and sending the data to BRM.
+7. Prepare for future expansion to include additional LATAM currencies as needed.
+
+Let me know if you want these action items assigned to specific individuals or if you need them formatted for tracking.
+
 Here are the key points from the discussion regarding Currency Exchange Rates:
 
 Key Discussion Points:
