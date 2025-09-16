@@ -1,0 +1,30 @@
+Here are the key points from the discussion regarding Currency Exchange Rates:
+
+Key Discussion Points:
+- The need to incorporate Chilean peso (CLP) and other LATAM currencies into the exchange rate update process.
+- The current program/API fetches exchange rates between a source and a destination currency for a given date range.
+- There is a requirement to extend the program to handle multiple destination currencies (e.g., DOP, CLP, etc.) in a loop, as the API only supports one pair per call.
+- The exchange rates should be stored in the GL rates table, and care should be taken not to overwrite existing data.
+- The team discussed using a lookup to iterate through all required currencies and fetch rates for each.
+
+Questions Raised:
+- Can the program/API be modified to handle multiple destination currencies in a single run (via a loop)?
+- What are the exact input parameters required for the API/program?
+- Is there a need to build a new program, or can the existing one be modified with minor changes?
+- How will the program ensure it does not overwrite existing exchange rate data?
+- What is the best way to structure the lookup for all LATAM currencies?
+
+Program Details & Requirements:
+- The program should call the API for each required currency pair (USD to DOP, USD to CLP, etc.).
+- The API parameters are: source currency, destination currency, start date, end date.
+- The program should store the fetched rates in the GL rates table.
+- The logic should be flexible to add more currencies in the future (e.g., Paraguay).
+- The program should be reviewed and possibly shared for further study and modification.
+
+Input Parameters (for the API/program):
+- Source currency (e.g., USD)
+- Destination currency (e.g., DOP, CLP, etc.)
+- Start date
+- End date
+
+Let me know if you need a more detailed breakdown or if you want this as a formal summary or action item.
