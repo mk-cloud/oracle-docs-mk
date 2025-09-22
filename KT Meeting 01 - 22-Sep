@@ -1,0 +1,72 @@
+Here’s a summary and a list of important key points from the meeting:
+
+Summary:
+The meeting focused on the upcoming transition to the GFS billing system, expected to go live in October. The team discussed the data flow architecture, how customer and address data will be managed in the new system, and clarified integration points between Oracle, BRM, CDH, and other modules. The group also addressed process changes, technical details, and the need for additional training sessions to ensure a smooth transition.
+
+Key Points:
+1. September will be the last billing cycle under the old system; GFS will take over billing from October, pending a go/no-go decision.
+2. The data flow architecture for the new system was explained, including how customer and address data are handled.
+3. New customer addresses will be integrated directly from CDH to Oracle, with specific rules for invoice and billing addresses.
+4. Existing customer address changes are rare but have a separate integration path.
+5. The process for invoice generation, tax calculation (using Vertex), and item creation was detailed.
+6. There are some changes for specific entities (e.g., BOA Visa) regarding address handling.
+7. The team discussed the handling of proforma invoices and the approval process involving customers.
+8. No major changes are expected for revenue accounting, cash management, or commission processes, except for some enhancements and automation.
+9. The need for additional training sessions and possible extension of meeting dates was acknowledged to ensure all topics are covered thoroughly.
+10. The team agreed to pause and continue the discussion in the next session, with a focus on covering all critical points at a manageable pace.
+
+Let me know if you need more details on any specific topic!
+
+
+Action Items
+[ ] Provide the cutover tracker and J-RAM book details.
+[ ] Cover the detailed changes in the upcoming sessions.
+[ ] Explain the additional two items being created in the Ops module.
+[ ] Provide more details on the upcoming automation of sending invoice details from AR to Synchro.
+[ ] Discuss the timing and validation required for the preferred customer payment process.
+[ ] Schedule additional sessions to cover the remaining topics in detail.
+
+
+
+Here’s an outline of the meeting:
+
+I. Introduction & Transition Overview
+   A. Cutover tracker and J RAM book
+   B. Go/no-go decision for GFS billing transition
+   C. Timeline: September last billing in old system, October GFS go-live
+
+II. Data Flow Architecture
+   A. Overview of new system integration
+   B. Oracle systems and Customer Data Hub (CDH)
+   C. Handling of customer and address data
+      1. New customer address integration
+      2. Existing customer address changes
+
+III. Process Details & Technical Clarifications
+   A. Invoice generation and tax calculation (Vertex)
+   B. Item creation and inventory management
+   C. Entity-specific changes (e.g., BOA Visa)
+   D. Proforma invoice approval process
+   E. Revenue accounting and cash management
+   F. Commission process updates
+
+IV. Training, Support, and Next Steps
+   A. Need for additional sessions and extended training
+   B. Coordination for meeting scheduling and support
+   C. Agreement to pause and continue in the next session
+
+Let me know if you’d like this outline expanded or focused on a particular section!
+
+
+
+
+Here are the follow-up items from this meeting:
+
+1. Provide the cutover tracker and J-RAM book details.
+2. Cover the detailed changes in the upcoming sessions.
+3. Explain the additional two items being created in the Ops module.
+4. Provide more details on the upcoming automation of sending invoice details from AR to Synchro.
+5. Discuss the timing and validation required for the preferred customer payment process.
+6. Schedule additional sessions to cover the remaining topics in detail.
+
+Let me know if you need more details or want to assign these follow-ups to specific people!
