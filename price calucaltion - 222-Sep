@@ -1,0 +1,18 @@
+Here are the key important points from the meeting held on 2025-09-23:
+
+1. Transaction type "110" will be used for both export and intercompany invoices, with a plan to create a separate type for manual intercompany invoices.
+2. Export/foreign customers are identified by taxpayer IDs starting with 555.
+3. Grouping logic for invoice lines was discussed, including handling of decimals—CLP currency does not allow decimals, and validation is required.
+4. Action items for Vinay:
+   - Check the logic for handling null values in pricing tag, commitment flag, and discount group fields (reference Argentina code).
+   - Review customer number/identifier handling and ensure the correct value is sent to EIO.
+   - Complete the grouping logic based on alternate transaction description and calculation of unit price.
+5. Action items for Shashi:
+   - Create and populate data for pricing tag, commitment flag, and discount group fields in the staging table.
+   - Make changes in the staging table to include new fields and provide data to Vinay.
+   - Add validation for commercial activity description fields (33 and 34).
+6. Manual creation of intercompany customers was discussed, with a follow-up call scheduled with Eduardo to clarify which customers need to be created.
+7. Staging table changes and data flow between systems were reviewed, including how data is passed and validated.
+8. Next steps include code migration in two stages, customer testing, and further meetings to finalize logic and data requirements.
+
+Let me know if you need more details on any specific point!
