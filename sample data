@@ -1,14 +1,17 @@
-customer_trx_line_id,customer_trx_id,line_number,line_type,inventory_item_id,org_id,quantity_invoiced,quantity_credited,unit_selling_price,extended_amount,description,interface_line_attribute1,interface_line_attribute2,interface_line_attribute3,interface_line_attribute4,interface_line_attribute5,interface_line_attribute6,interface_line_attribute7,interface_line_attribute8,interface_line_attribute9,trx_number,segment19,item_description
-10001,1005375,1,LINE,1001,204,2,,1000.00,2000.00,Dell Laptop Computer,EA,,,"CORP SALES",,,"","","Standard Warranty",I1005375,LAPTOP01,Dell Laptop Computer
-10002,1005375,2,LINE,2001,204,10,,100.00,1000.00,Professional Services Tier 1,HR,,,"PREMIUM","1","MAINT","","","Annual Contract",I1005375,SERVICE01,Professional Services
-10003,1005375,3,LINE,2001,204,5,,200.00,1000.00,Professional Services Tier 2,HR,,,"PREMIUM","1","MAINT","","","Annual Contract",I1005375,SERVICE01,Professional Services
-10004,1005375,4,LINE,2002,204,3,,150.00,450.00,Support Services,HR,,,"STANDARD","1","SUPPORT","","","Monthly",I1005375,SUPPORT01,Technical Support
-10005,1005375,5,LINE,3001,204,100,,0.10,10.00,Internet Basic Tier,GB,,,"BASIC DATA","","","","PROGRESSIVE","Residential",I1005375,INTERNET01,Internet Service
-10006,1005375,6,LINE,3001,204,200,,0.08,16.00,Internet Standard Tier,GB,,,"STANDARD DATA","","","","PROGRESSIVE","Business",I1005375,INTERNET01,Internet Service
-10007,1005375,7,LINE,3001,204,300,,0.05,15.00,Internet Premium Tier,GB,,,"PREMIUM DATA","","","","PROGRESSIVE","Enterprise",I1005375,INTERNET01,Internet Service
-10008,1005375,8,LINE,1002,204,3,,25.00,75.00,Wireless Mouse,EA,,,"CORP SALES","3",,"","","Standard Warranty",I1005375,MOUSE01,Wireless Mouse
-10009,1005375,9,LINE,4001,204,1,,500.00,500.00,Software License,LIC,,,"ENTERPRISE","2","SOFTWARE","100","","Annual License",I1005375,SOFTWARE01,Enterprise Software
-10010,1005375,10,LINE,5001,204,,,0.00,0.00,Pre-rated Service Credit,HR,,,"CREDIT","","","","","Adjustment",I1005375,CREDIT01,Service Credit
-20001,2005376,1,LINE,3002,204,50,,0.12,6.00,Data Transfer Basic,GB,,,"MOBILE BASIC","","","","PROGRESSIVE","Consumer",G2005376,MOBILE01,Mobile Data Service
-20002,2005376,2,LINE,3002,204,100,,0.09,9.00,Data Transfer Standard,GB,,,"MOBILE STD","","","","PROGRESSIVE","Consumer",G2005376,MOBILE01,Mobile Data Service
-20003,2005376,3,LINE,6001,204,1,,299.99,299.99,Tablet Device,EA,,,"RETAIL","","","50","","Consumer Electronics",G2005376,TABLET01,Tablet Computer
+customer_trx_line_id,customer_trx_id,line_number,line_type,inventory_item_id,org_id,quantity_invoiced,quantity_credited,unit_selling_price,extended_amount,description,interface_line_attribute1,interface_line_attribute4,interface_line_attribute5,interface_line_attribute6,interface_line_attribute7,interface_line_attribute8,interface_line_attribute9,trx_number,segment19,item_description
+10001,1005375,1,LINE,1001,204,2,,1000.00,2000.00,Dell Laptop Computer,EA,CORP SALES,,,0,,Standard Warranty,I1005375,LAPTOP01,Dell Laptop Computer
+10002,1005375,2,LINE,2001,204,10,,100.00,1000.00,Professional Services Tier 1,HR,PREMIUM,1,MAINT,0,,Annual Contract,I1005375,SERVICE01,Professional Services
+10003,1005375,3,LINE,2001,204,5,,200.00,1000.00,Professional Services Tier 2,HR,PREMIUM,1,MAINT,0,,Annual Contract,I1005375,SERVICE01,Professional Services
+10004,1005375,4,LINE,3001,204,100,,0.10,10.00,Internet Basic Tier,GB,BASIC DATA,,,0,PROGRESSIVE,Residential,I1005375,INTERNET01,Internet Service
+10005,1005375,5,LINE,3001,204,200,,0.08,16.00,Internet Standard Tier,GB,STANDARD DATA,,,0,PROGRESSIVE,Business,I1005375,INTERNET01,Internet Service
+10006,1005375,6,LINE,1002,204,3,,25.00,75.00,Wireless Mouse,EA,CORP SALES,3,,0,,Standard Warranty,I1005375,MOUSE01,Wireless Mouse
+20001,2005376,1,LINE,2002,204,8,,120.00,960.00,Maintenance Service A,HR,ENTERPRISE,1,ANNUAL_MAINT,0,,Premium Support,I2005376,SUPPORT01,Technical Support
+20002,2005376,2,LINE,2003,204,12,,80.00,960.00,Maintenance Service B,HR,STANDARD,1,ANNUAL_MAINT,0,,Basic Support,I2005376,SUPPORT02,System Maintenance
+20003,2005376,3,LINE,3002,204,150,,0.12,18.00,Data Transfer Tier 1,GB,MOBILE BASIC,,,0,PROGRESSIVE,Consumer,I2005376,MOBILE01,Mobile Data Service
+20004,2005376,4,LINE,3002,204,250,,0.08,20.00,Data Transfer Tier 2,GB,MOBILE STD,,,0,PROGRESSIVE,Business,I2005376,MOBILE01,Mobile Data Service
+20005,2005376,5,LINE,3002,204,300,,0.05,15.00,Data Transfer Tier 3,GB,MOBILE PREMIUM,,,0,PROGRESSIVE,Enterprise,I2005376,MOBILE01,Mobile Data Service
+30001,3005377,1,LINE,4001,204,1,,2500.00,2500.00,Enterprise Software License,LIC,SOFTWARE,2,SOFTWARE_GRP,100,,Annual License,I3005377,SOFTWARE01,Enterprise Software
+30002,3005377,2,LINE,4002,204,1,,1500.00,1500.00,Database License,LIC,DATABASE,2,SOFTWARE_GRP,50,,Annual License,I3005377,DATABASE01,Database Software
+30003,3005377,3,LINE,5001,204,,,0.00,0.00,Pre-rated Service Credit,HR,CREDIT,,,0,,Adjustment,I3005377,CREDIT01,Service Credit
+40001,4005378,1,LINE,6001,204,2,,899.99,1799.98,Premium Tablet,EA,RETAIL,,,150,,Consumer Electronics,G4005378,TABLET01,Tablet Computer
+40002,4005378,2,LINE,6002,204,5,,199.99,999.95,Wireless Headphones,EA,AUDIO,,,25,,Audio Equipment,G4005378,AUDIO01,Wireless Headphones
