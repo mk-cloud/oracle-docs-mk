@@ -152,6 +152,61 @@ ORDER BY
             sequential_line_number * 0.0001
     END;
 
+UNION ALL
+
+-- *** SCENARIO 4: NON-COMMITMENT, NON-PROGRESSIVE LINES ***
+-- Additional logic to fetch records that are neither commitment nor progressive
+SELECT
+    tracking_seq_num,
+    transaction_seq_num,
+    customer_trx_line_id,
+    ROWNUM sequential_line_number,
+    legacy_line_number,
+    product_code,
+    NULL aux_product_code,
+    quantity,
+    unit_price,
+    det_subtotal,
+    der_org_id,
+    pricing_type,
+    commitment_flag,
+    dsg_group,
+    processing_logic
+FROM
+(
+    SELECT
+        stg.tracking_seq_num,
+        stg.transaction_seq_num,
+        customer_trx_line_id,
+        ROWNUM sequential_line_number,
+        stg.legacy_line_number,
+        substr(mslb.segment19, 1, 25) AS product_code,
+        NULL aux_product_code,
+        quantity, -- Keep original quantity for non-commitment, non-progressive lines
+        unit_price,
+        abs(stg.der_amount) AS det_subtotal, -- Keep original amount
+        stg.der_org_id,
+        stg.pricing_type,
+        stg.commitment_flag,
+        stg.dsg_group,
+        'NON_COMMITMENT_NON_PROGRESSIVE' AS processing_logic -- New indicator
+    FROM
+        xxefx_ar_eio_ohl_outbound_log rcta,
+        xxefx_ar_hrm_ohl_trx_int_stg stg,
+        mtl_system_items_b mslb
+    WHERE
+        rcta.tracking_seq_num = stg.tracking_seq_num
+        AND stg.der_inv_item_id = mslb.inventory_item_id (+)
+        AND stg.der_org_id = mslb.organization_id (+)
+        AND stg.legacy_line_number IS NOT NULL
+        AND stg.line_type = 'LINE'
+        AND stg.tracking_seq_num = '1005375'
+        AND abs(stg.der_amount) > 0  -- Remove zero-value lines
+        -- *** SPECIFIC FILTER FOR SCENARIO 4 ***
+        AND stg.commitment_flag NOT IN (1, 2)  -- No commitment lines
+        AND stg.pricing_type != 'Progressive'  -- No progressive lines
+) non_commitment_non_progressive_data
+
 -- =====================================================
 -- SUMMARY OF BUSINESS LOGIC IMPLEMENTATION:
 -- =====================================================
@@ -161,5 +216,6 @@ ORDER BY
 --    - Only one line per group is sent to EIO
 -- 3. Progressive pricing lines are sent individually but ordered by amount
 -- 4. Standard lines are processed normally with no special grouping
--- 5. If more than 21 lines exist, all lines pass through without additional processing
+-- 5. NON-COMMITMENT, NON-PROGRESSIVE lines are fetched separately with UNION ALL
+-- 6. If more than 21 lines exist, all lines pass through without additional processing
 -- =====================================================
