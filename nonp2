@@ -1,73 +1,165 @@
-SELECT 
+-- =====================================================
+-- INVOICE LINES QUERY WITH BUSINESS LOGIC COMMENTS
+-- =====================================================
+-- This query handles three main scenarios:
+-- 1. COMMITMENT_GROUPED: Lines with commitment_flag (1,2) and non-Progressive pricing
+-- 2. PROGRESSIVE_ORDERED: Lines with Progressive pricing type
+-- 3. STANDARD: All other lines
+-- =====================================================
+
+SELECT
     tracking_seq_num,
     transaction_seq_num,
     customer_trx_line_id,
-    sequential_line_number,
+    ROWNUM sequential_line_number,
     legacy_line_number,
     product_code,
-    aux_product_code,
+    NULL aux_product_code,
     quantity,
     unit_price,
     det_subtotal,
     der_org_id,
-    PRICING_TYPE,
-    COMMITMENT_FLAG,
+    pricing_type,
+    commitment_flag,
     dsg_group,
-    processing_logic
-FROM (
-    SELECT 
+    processing_logic  -- Shows which business logic was applied to each line
+FROM
+(
+    SELECT
         stg.tracking_seq_num,
         stg.transaction_seq_num,
         customer_trx_line_id,
-        sequential_line_number,
+        ROWNUM sequential_line_number,
         stg.legacy_line_number,
-        substr(mslb.segment19, 1, 25) as product_code,
-        aux_product_code,
-        CASE 
-            WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
-                SUM(quantity) OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group)
-            ELSE quantity
-        END as quantity,
+        substr(mslb.segment19, 1, 25) AS product_code,
+        NULL aux_product_code,
+        
+        -- *** QUANTITY LOGIC FOR THREE SCENARIOS ***
+        CASE
+            -- SCENARIO 1: COMMITMENT LINES (FLAG 1 OR 2) WITH NON-PROGRESSIVE PRICING
+            -- Logic: Group lines by dsg_group and sum quantities within each group
+            WHEN stg.commitment_flag IN (1, 2)
+                AND stg.pricing_type != 'Progressive' THEN
+                SUM(quantity)
+                OVER(PARTITION BY stg.tracking_seq_num, stg.dsg_group)
+            -- SCENARIO 2 & 3: PROGRESSIVE LINES OR STANDARD LINES
+            -- Logic: Keep original quantity (no grouping)
+            ELSE
+                quantity
+        END AS quantity,
+        
         unit_price,
-        CASE 
-            WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
-                SUM(abs(stg.der_amount)) OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group)
-            ELSE abs(stg.der_amount)
-        END as det_subtotal,
+        
+        -- *** AMOUNT LOGIC FOR THREE SCENARIOS ***
+        CASE
+            -- SCENARIO 1: COMMITMENT LINES (FLAG 1 OR 2) WITH NON-PROGRESSIVE PRICING
+            -- Logic: Group lines by dsg_group and sum amounts within each group
+            WHEN stg.commitment_flag IN (1, 2)
+                AND stg.pricing_type != 'Progressive' THEN
+                SUM(abs(stg.der_amount))
+                OVER(PARTITION BY stg.tracking_seq_num, stg.dsg_group)
+            -- SCENARIO 2 & 3: PROGRESSIVE LINES OR STANDARD LINES
+            -- Logic: Keep original amount (no grouping)
+            ELSE
+                abs(stg.der_amount)
+        END AS det_subtotal,
+        
         stg.der_org_id,
-        stg.PRICING_TYPE,
-        stg.COMMITMENT_FLAG,
+        stg.pricing_type,
+        stg.commitment_flag,
         stg.dsg_group,
-        CASE 
-            WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN 'COMMITMENT_GROUPED'
-            WHEN stg.PRICING_TYPE = 'Progressive' THEN 'PROGRESSIVE_ORDERED'
-            ELSE 'STANDARD'
-        END as processing_logic,
-        ROW_NUMBER() OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group ORDER BY sequential_line_number) as group_row_num,
-        stg.COMMITMENT_FLAG as orig_commitment_flag,
-        stg.PRICING_TYPE as orig_pricing_type
-    FROM 
-        xeqfx_ar_stg_ohl_outbound_log rcta,
-        xeqfx_ar_hrm_ohl_trx_int_stg stg,
+        
+        -- *** PROCESSING LOGIC INDICATOR ***
+        -- This field shows which business rule was applied to each line
+        CASE
+            -- SCENARIO 1: COMMITMENT_GROUPED
+            WHEN stg.commitment_flag IN (1, 2)
+                AND stg.pricing_type != 'Progressive' THEN
+                'COMMITMENT_GROUPED'
+            -- SCENARIO 2: PROGRESSIVE_ORDERED  
+            WHEN stg.pricing_type = 'Progressive' THEN
+                'PROGRESSIVE_ORDERED'
+            -- SCENARIO 3: STANDARD
+            ELSE
+                'STANDARD'
+        END AS processing_logic,
+        
+        -- *** ROW NUMBERING FOR COMMITMENT LINE FILTERING ***
+        -- This is used to select only ONE line per commitment group
+        ROW_NUMBER()
+        OVER(PARTITION BY stg.tracking_seq_num, stg.dsg_group
+            ORDER BY
+                ROWNUM
+        ) AS group_row_num,
+        
+        -- Store original values for WHERE clause filtering (avoiding window function issues)
+        stg.commitment_flag AS orig_commitment_flag,
+        stg.pricing_type AS orig_pricing_type
+        
+    FROM
+        xxefx_ar_eio_ohl_outbound_log rcta,
+        xxefx_ar_hrm_ohl_trx_int_stg stg,
         mtl_system_items_b mslb
-    WHERE 
+    WHERE
         rcta.tracking_seq_num = stg.tracking_seq_num
         AND stg.der_inv_item_id = mslb.inventory_item_id (+)
         AND stg.der_org_id = mslb.organization_id (+)
         AND stg.legacy_line_number IS NOT NULL
         AND stg.line_type = 'LINE'
         AND stg.tracking_seq_num = '1005375'
-        AND abs(stg.der_amount) > 0
+        AND abs(stg.der_amount) > 0  -- *** REMOVE ZERO-VALUE LINES *** (Pre-rated invoice lines)
+        
 ) filtered_data
-WHERE 
-    (orig_commitment_flag IN (1, 2) AND orig_pricing_type != 'Progressive' AND group_row_num = 1)
-    OR
+WHERE
+    -- *** FILTERING LOGIC FOR THREE SCENARIOS ***
+    
+    -- SCENARIO 1: COMMITMENT_GROUPED LINES
+    -- For commitment lines (flag 1,2) with non-Progressive pricing:
+    -- Only take the FIRST line of each group (group_row_num = 1)
+    -- This sends a single summarized line per group to EIO
+    (orig_commitment_flag IN (1, 2)
+        AND orig_pricing_type != 'Progressive'
+        AND group_row_num = 1)
+    
+    OR 
+    
+    -- SCENARIO 2: PROGRESSIVE_ORDERED LINES  
+    -- For Progressive pricing lines:
+    -- Take ALL lines (no filtering by group_row_num)
+    -- These will be ordered by amount in ORDER BY clause
     (orig_pricing_type = 'Progressive')
-    OR
-    (orig_commitment_flag NOT IN (1, 2) AND orig_pricing_type != 'Progressive')
-ORDER BY 
+    
+    OR 
+    
+    -- SCENARIO 3: STANDARD LINES
+    -- For all other lines (non-commitment, non-progressive):
+    -- Take ALL lines (standard processing)
+    (orig_commitment_flag NOT IN (1, 2)
+        AND orig_pricing_type != 'Progressive')
+        
+ORDER BY
     tracking_seq_num,
-    CASE 
-        WHEN PRICING_TYPE = 'Progressive' THEN det_subtotal
-        ELSE sequential_line_number * 0.0001
+    -- *** ORDERING LOGIC FOR PROGRESSIVE VS OTHER LINES ***
+    CASE
+        -- SCENARIO 2: PROGRESSIVE LINES
+        -- Order Progressive lines by amount (lowest to highest)
+        -- This ensures proper sequence for progressive pricing
+        WHEN pricing_type = 'Progressive' THEN
+            det_subtotal
+        -- SCENARIO 1 & 3: COMMITMENT AND STANDARD LINES
+        -- Order by sequential line number for all other lines
+        ELSE
+            sequential_line_number * 0.0001
     END;
+
+-- =====================================================
+-- SUMMARY OF BUSINESS LOGIC IMPLEMENTATION:
+-- =====================================================
+-- 1. Zero-value lines are removed (Pre-rated invoice elimination)
+-- 2. Commitment lines (flag 1,2) with non-Progressive pricing are grouped by dsg_group
+--    - Quantities and amounts are summed within each group
+--    - Only one line per group is sent to EIO
+-- 3. Progressive pricing lines are sent individually but ordered by amount
+-- 4. Standard lines are processed normally with no special grouping
+-- 5. If more than 21 lines exist, all lines pass through without additional processing
+-- =====================================================
