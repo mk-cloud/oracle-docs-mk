@@ -24,36 +24,28 @@ FROM (
         substr(mslb.segment19, 1, 25) as product_code,
         aux_product_code,
         CASE 
-            -- For commitment lines (flag 1 or 2) with non-progressive pricing: use grouped quantity
             WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
                 SUM(quantity) OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group)
-            -- For all other cases: use original quantity
             ELSE quantity
         END as quantity,
         unit_price,
         CASE 
-            -- For commitment lines (flag 1 or 2) with non-progressive pricing: use grouped amount
             WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
                 SUM(abs(stg.der_amount)) OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group)
-            -- For all other cases: use original amount
             ELSE abs(stg.der_amount)
         END as det_subtotal,
         stg.der_org_id,
         stg.PRICING_TYPE,
         stg.COMMITMENT_FLAG,
         stg.dsg_group,
-        -- Processing logic indicator
         CASE 
             WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN 'COMMITMENT_GROUPED'
             WHEN stg.PRICING_TYPE = 'Progressive' THEN 'PROGRESSIVE_ORDERED'
             ELSE 'STANDARD'
         END as processing_logic,
-        -- Row number for filtering commitment lines
-        CASE 
-            WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
-                ROW_NUMBER() OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group ORDER BY sequential_line_number)
-            ELSE 1
-        END as group_row_num
+        ROW_NUMBER() OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group ORDER BY sequential_line_number) as group_row_num,
+        stg.COMMITMENT_FLAG as orig_commitment_flag,
+        stg.PRICING_TYPE as orig_pricing_type
     FROM 
         xeqfx_ar_stg_ohl_outbound_log rcta,
         xeqfx_ar_hrm_ohl_trx_int_stg stg,
@@ -65,22 +57,17 @@ FROM (
         AND stg.legacy_line_number IS NOT NULL
         AND stg.line_type = 'LINE'
         AND stg.tracking_seq_num = '1005375'
-        AND abs(stg.der_amount) > 0  -- Remove zero-value lines
+        AND abs(stg.der_amount) > 0
 ) filtered_data
 WHERE 
-    -- For commitment lines: only take first row of each group
-    (COMMITMENT_FLAG IN (1, 2) AND PRICING_TYPE != 'Progressive' AND group_row_num = 1)
+    (orig_commitment_flag IN (1, 2) AND orig_pricing_type != 'Progressive' AND group_row_num = 1)
     OR
-    -- For progressive lines: take all rows
-    (PRICING_TYPE = 'Progressive')
+    (orig_pricing_type = 'Progressive')
     OR
-    -- For standard lines: take all rows
-    (COMMITMENT_FLAG NOT IN (1, 2) AND PRICING_TYPE != 'Progressive')
+    (orig_commitment_flag NOT IN (1, 2) AND orig_pricing_type != 'Progressive')
 ORDER BY 
     tracking_seq_num,
     CASE 
-        -- For progressive lines: order by amount (lowest to highest)
         WHEN PRICING_TYPE = 'Progressive' THEN det_subtotal
-        -- For all other lines: order by sequential line number
         ELSE sequential_line_number * 0.0001
     END;
