@@ -1,0 +1,138 @@
+-- Modified Invoice Lines Query with Commitment Flag and Pricing Type Logic
+
+WITH base_data AS (
+    SELECT 
+        stg.tracking_seq_num,
+        stg.transaction_seq_num,
+        customer_trx_line_id,
+        sequential_line_number,
+        stg.legacy_line_number,
+        substr(mslb.segment19, 1, 25) as product_code,
+        aux_product_code,
+        quantity,
+        unit_price,
+        abs(stg.der_amount) as det_subtotal,
+        stg.der_org_id,
+        stg.PRICING_TYPE,
+        stg.COMMITMENT_FLAG,
+        stg.dsg_group
+    FROM 
+        xeqfx_ar_stg_ohl_outbound_log rcta,
+        xeqfx_ar_hrm_ohl_trx_int_stg stg,
+        mtl_system_items_b mslb
+    WHERE 
+        rcta.tracking_seq_num = stg.tracking_seq_num
+        AND stg.der_inv_item_id = mslb.inventory_item_id (+) -- added (+) to consider lines without items
+        AND stg.der_org_id = mslb.organization_id (+) -- added (+) to consider lines without items
+        AND stg.legacy_line_number IS NOT NULL
+        AND stg.line_type = 'LINE'
+        AND stg.tracking_seq_num = '1005375'
+),
+
+-- Step 1: Remove zero-value lines (Pre-rated Invoice lines to be eliminated)
+filtered_data AS (
+    SELECT *
+    FROM base_data
+    WHERE det_subtotal > 0  -- Remove zero-value lines
+),
+
+-- Step 2: Apply Commitment Flag Logic
+commitment_processed AS (
+    SELECT 
+        *,
+        CASE 
+            WHEN COMMITMENT_FLAG IN (1, 2) AND PRICING_TYPE != 'Progressive' THEN
+                -- For commitment lines (flag 1 or 2) with non-progressive pricing
+                -- Group by group_ID logic - summarize lines and send single line to EIO
+                ROW_NUMBER() OVER (
+                    PARTITION BY tracking_seq_num, dsg_group 
+                    ORDER BY sequential_line_number
+                ) as group_row_num,
+                SUM(quantity) OVER (
+                    PARTITION BY tracking_seq_num, dsg_group
+                ) as grouped_quantity,
+                SUM(det_subtotal) OVER (
+                    PARTITION BY tracking_seq_num, dsg_group
+                ) as grouped_amount
+            ELSE
+                -- For other lines, keep individual processing
+                1 as group_row_num,
+                quantity as grouped_quantity,
+                det_subtotal as grouped_amount
+        END
+    FROM filtered_data
+),
+
+-- Step 3: Apply Progressive Pricing Logic
+final_processed AS (
+    SELECT 
+        tracking_seq_num,
+        customer_trx_line_id,
+        sequential_line_number,
+        legacy_line_number,
+        product_code,
+        aux_product_code,
+        CASE 
+            WHEN PRICING_TYPE = 'Progressive' THEN grouped_quantity
+            ELSE grouped_quantity
+        END as final_quantity,
+        unit_price,
+        CASE 
+            WHEN PRICING_TYPE = 'Progressive' THEN grouped_amount
+            ELSE grouped_amount
+        END as final_det_subtotal,
+        PRICING_TYPE,
+        COMMITMENT_FLAG,
+        dsg_group,
+        -- Add logic indicator for tracking
+        CASE 
+            WHEN COMMITMENT_FLAG IN (1, 2) AND PRICING_TYPE != 'Progressive' THEN 'COMMITMENT_GROUPED'
+            WHEN PRICING_TYPE = 'Progressive' THEN 'PROGRESSIVE_ORDERED'
+            ELSE 'STANDARD'
+        END as processing_logic
+    FROM commitment_processed
+    WHERE 
+        -- For commitment lines, only take the first row of each group
+        (COMMITMENT_FLAG IN (1, 2) AND PRICING_TYPE != 'Progressive' AND group_row_num = 1)
+        OR 
+        -- For progressive lines, take all lines
+        (PRICING_TYPE = 'Progressive')
+        OR
+        -- For standard lines, take all
+        (COMMITMENT_FLAG NOT IN (1, 2) AND PRICING_TYPE != 'Progressive')
+)
+
+-- Final SELECT with ordering for Progressive lines
+SELECT 
+    tracking_seq_num,
+    customer_trx_line_id,
+    sequential_line_number,
+    legacy_line_number,
+    product_code,
+    aux_product_code,
+    final_quantity as quantity,
+    unit_price,
+    final_det_subtotal as det_subtotal,
+    PRICING_TYPE,
+    COMMITMENT_FLAG,
+    dsg_group,
+    processing_logic
+FROM final_processed
+ORDER BY 
+    tracking_seq_num,
+    CASE 
+        WHEN PRICING_TYPE = 'Progressive' THEN final_det_subtotal  -- Order progressive lines by amount (lowest to highest)
+        ELSE sequential_line_number  -- Standard ordering for other lines
+    END;
+
+-- Additional logic notes:
+-- 1. Zero Pre-rated Invoice lines are eliminated in the filtered_data CTE
+-- 2. For COMMITMENT_FLAG lines (1 or 2) with non-progressive PRICING_TYPE:
+--    - Lines are grouped by dsg_group
+--    - Quantities and amounts are summed
+--    - Only one representative line per group is sent to EIO
+-- 3. For Progressive PRICING_TYPE lines:
+--    - Lines are sent as-is but ordered from lowest to highest amount
+--    - No grouping is performed
+-- 4. If there are more than 21 lines in current invoice, all available lines 
+--    should be passed as they are with no grouping or additional processing
