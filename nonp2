@@ -1,0 +1,64 @@
+SELECT 
+    stg.tracking_seq_num,
+    stg.transaction_seq_num,
+    customer_trx_line_id,
+    sequential_line_number,
+    stg.legacy_line_number,
+    substr(mslb.segment19, 1, 25) as product_code,
+    aux_product_code,
+    CASE 
+        -- For commitment lines (flag 1 or 2) with non-progressive pricing: use grouped quantity
+        WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
+            SUM(quantity) OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group)
+        -- For all other cases: use original quantity
+        ELSE quantity
+    END as quantity,
+    unit_price,
+    CASE 
+        -- For commitment lines (flag 1 or 2) with non-progressive pricing: use grouped amount
+        WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN
+            SUM(abs(stg.der_amount)) OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group)
+        -- For all other cases: use original amount
+        ELSE abs(stg.der_amount)
+    END as det_subtotal,
+    stg.der_org_id,
+    stg.PRICING_TYPE,
+    stg.COMMITMENT_FLAG,
+    stg.dsg_group,
+    -- Processing logic indicator
+    CASE 
+        WHEN stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' THEN 'COMMITMENT_GROUPED'
+        WHEN stg.PRICING_TYPE = 'Progressive' THEN 'PROGRESSIVE_ORDERED'
+        ELSE 'STANDARD'
+    END as processing_logic
+FROM 
+    xeqfx_ar_stg_ohl_outbound_log rcta,
+    xeqfx_ar_hrm_ohl_trx_int_stg stg,
+    mtl_system_items_b mslb
+WHERE 
+    rcta.tracking_seq_num = stg.tracking_seq_num
+    AND stg.der_inv_item_id = mslb.inventory_item_id (+) -- added (+) to consider lines without items
+    AND stg.der_org_id = mslb.organization_id (+) -- added (+) to consider lines without items
+    AND stg.legacy_line_number IS NOT NULL
+    AND stg.line_type = 'LINE'
+    AND stg.tracking_seq_num = '1005375'
+    AND abs(stg.der_amount) > 0  -- Remove zero-value lines (Pre-rated Invoice lines)
+    AND (
+        -- For commitment lines with non-progressive pricing: only show one line per group
+        (stg.COMMITMENT_FLAG IN (1, 2) AND stg.PRICING_TYPE != 'Progressive' AND 
+         ROW_NUMBER() OVER (PARTITION BY stg.tracking_seq_num, stg.dsg_group ORDER BY sequential_line_number) = 1)
+        OR
+        -- For progressive pricing: show all lines
+        (stg.PRICING_TYPE = 'Progressive')
+        OR
+        -- For standard lines: show all lines
+        (stg.COMMITMENT_FLAG NOT IN (1, 2) AND stg.PRICING_TYPE != 'Progressive')
+    )
+ORDER BY 
+    stg.tracking_seq_num,
+    CASE 
+        -- For progressive lines: order by amount (lowest to highest)
+        WHEN stg.PRICING_TYPE = 'Progressive' THEN abs(stg.der_amount)
+        -- For all other lines: order by sequential line number
+        ELSE sequential_line_number * 0.0001  -- Convert to decimal for consistent ordering
+    END;
