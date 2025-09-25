@@ -1,0 +1,27 @@
+invoice_number,line_number,item_alt_description,commitment_flag,pricing_type,dsg_group,product_code,quantity,unit_price,amount,service_period,scenario_type
+INV001,1,Dell Laptop Computer,NULL,NULL,NULL,LAPTOP01,2,1000.00,2000.00,2024-01,Standard Lines
+INV001,2,Wireless Mouse,3,NULL,ANY,MOUSE01,3,25.00,75.00,2024-01,Standard Lines
+INV001,3,Office Software License,NULL,Standard,NULL,SOFTWARE02,1,500.00,500.00,2024-01,Standard Lines
+INV002,1,Professional Services - Maintenance,1,NULL,MAINT_GROUP,SERVICE01,10,100.00,1000.00,2024-01,Commitment Lines
+INV002,2,Professional Services - Support,1,NULL,MAINT_GROUP,SERVICE02,5,200.00,1000.00,2024-01,Commitment Lines
+INV002,3,Database Services - Premium,1,NULL,DB_GROUP,DATABASE01,3,150.00,450.00,2024-01,Commitment Lines
+INV002,4,Enterprise Software License,2,NULL,SOFTWARE_GROUP,SOFTWARE01,1,2500.00,2500.00,2024-01,Commitment Lines
+INV002,5,Database License - Standard,2,NULL,SOFTWARE_GROUP,DATABASE02,1,1500.00,1500.00,2024-01,Commitment Lines
+INV003,1,Internet Service - Basic Tier,NULL,PROGRESSIVE,NULL,INTERNET01,100,0.10,10.00,2024-01,Progressive Lines
+INV003,2,Internet Service - Standard Tier,NULL,PROGRESSIVE,NULL,INTERNET01,200,0.08,16.00,2024-01,Progressive Lines
+INV003,3,Internet Service - Premium Tier,NULL,PROGRESSIVE,NULL,INTERNET01,300,0.05,15.00,2024-01,Progressive Lines
+INV003,4,Mobile Data - Basic Tier,NULL,PROGRESSIVE,MOBILE_TIER,MOBILE01,50,0.12,6.00,2024-01,Progressive Lines
+INV003,5,Mobile Data - Standard Tier,NULL,PROGRESSIVE,MOBILE_TIER,MOBILE01,100,0.09,9.00,2024-01,Progressive Lines
+INV003,6,Mobile Data - Premium Tier,NULL,PROGRESSIVE,MOBILE_TIER,MOBILE01,150,0.06,9.00,2024-01,Progressive Lines
+INV004,1,Monthly Service Fee - Basic,1,NULL,MONTHLY_GRP,SERVICE03,2,250.00,500.00,2024-01,Mixed Scenario
+INV004,2,Monthly Service Fee - Premium,1,NULL,MONTHLY_GRP,SERVICE04,1,300.00,300.00,2024-01,Mixed Scenario
+INV004,3,Usage Charges - Tier 1,NULL,PROGRESSIVE,NULL,USAGE01,500,0.02,10.00,2024-01,Mixed Scenario
+INV004,4,Usage Charges - Tier 2,NULL,PROGRESSIVE,NULL,USAGE01,1000,0.015,15.00,2024-01,Mixed Scenario
+INV004,5,Equipment Rental,NULL,NULL,NULL,EQUIPMENT01,1,75.00,75.00,2024-01,Mixed Scenario
+INV005,1,Annual Maintenance Contract,2,NULL,ANNUAL_MAINT,MAINT01,1,1200.00,1200.00,2024-01,Commitment Flag 2
+INV005,2,Support Services - 24x7,2,NULL,ANNUAL_MAINT,SUPPORT01,1,800.00,800.00,2024-01,Commitment Flag 2
+INV005,3,Training Services,2,NULL,TRAINING_GRP,TRAINING01,3,400.00,1200.00,2024-01,Commitment Flag 2
+INV006,1,Zero Amount Adjustment,NULL,NULL,NULL,CREDIT01,0,0.00,0.00,2024-01,Zero Value Lines
+INV006,2,Regular Service,NULL,NULL,NULL,SERVICE05,1,100.00,100.00,2024-01,Zero Value Lines
+INV007,1,Conflicting Line - Progressive + Commitment,1,PROGRESSIVE,CONFLICT_GRP,CONFLICT01,1,100.00,100.00,2024-01,Edge Case
+INV007,2,Standard Service,NULL,NULL,NULL,SERVICE06,2,150.00,300.00,2024-01,Edge Case

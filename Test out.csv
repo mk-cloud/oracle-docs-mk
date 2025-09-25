@@ -1,0 +1,21 @@
+invoice_number,item_alt_description,commitment_flag,pricing_type,dsg_group,quantity,unit_price,amount,processing_logic,original_lines_count,notes
+INV001,Dell Laptop Computer,NULL,NULL,NULL,2,1000.00,2000.00,STANDARD - Individual Line,1,No grouping applied
+INV001,Wireless Mouse,3,NULL,ANY,3,25.00,75.00,STANDARD - Individual Line,1,No grouping applied
+INV001,Office Software License,NULL,Standard,NULL,1,500.00,500.00,STANDARD - Individual Line,1,No grouping applied
+INV002,Professional Services - Combined,1,NULL,MAINT_GROUP,1,2000.00,2000.00,COMMITMENT - Grouped,2,Lines 1-2 grouped by dsg_group
+INV002,Database Services - Premium,1,NULL,DB_GROUP,1,450.00,450.00,COMMITMENT - Single Group,1,Single line in group
+INV002,Enterprise Software - Combined,2,NULL,SOFTWARE_GROUP,1,4000.00,4000.00,COMMITMENT - Grouped,2,Lines 4-5 grouped by dsg_group
+INV003,Internet Service - Basic Tier,NULL,PROGRESSIVE,NULL,100,0.10,10.00,PROGRESSIVE - Ordered by Amount,1,Lowest amount first
+INV003,Mobile Data - Basic Tier,NULL,PROGRESSIVE,MOBILE_TIER,50,0.12,6.00,PROGRESSIVE - Ordered by Amount,1,Actually lowest amount
+INV003,Mobile Data - Premium Tier,NULL,PROGRESSIVE,MOBILE_TIER,150,0.06,9.00,PROGRESSIVE - Ordered by Amount,1,Tied amount - by line order
+INV003,Mobile Data - Standard Tier,NULL,PROGRESSIVE,MOBILE_TIER,100,0.09,9.00,PROGRESSIVE - Ordered by Amount,1,Tied amount - by line order  
+INV003,Internet Service - Premium Tier,NULL,PROGRESSIVE,NULL,300,0.05,15.00,PROGRESSIVE - Ordered by Amount,1,Second highest amount
+INV003,Internet Service - Standard Tier,NULL,PROGRESSIVE,NULL,200,0.08,16.00,PROGRESSIVE - Ordered by Amount,1,Highest amount last
+INV004,Monthly Service Fee - Combined,1,NULL,MONTHLY_GRP,1,800.00,800.00,COMMITMENT - Grouped,2,Lines 1-2 grouped by dsg_group
+INV004,Usage Charges - Tier 1,NULL,PROGRESSIVE,NULL,500,0.02,10.00,PROGRESSIVE - Ordered by Amount,1,Lower progressive amount first
+INV004,Usage Charges - Tier 2,NULL,PROGRESSIVE,NULL,1000,0.015,15.00,PROGRESSIVE - Ordered by Amount,1,Higher progressive amount second
+INV004,Equipment Rental,NULL,NULL,NULL,1,75.00,75.00,STANDARD - Individual Line,1,No grouping applied
+INV005,Annual Maintenance - Combined,2,NULL,ANNUAL_MAINT,1,2000.00,2000.00,COMMITMENT FLAG 2 - Grouped,2,Lines 1-2 grouped by dsg_group
+INV005,Training Services,2,NULL,TRAINING_GRP,1,1200.00,1200.00,COMMITMENT FLAG 2 - Single Group,1,Single line in group
+INV006,Regular Service,NULL,NULL,NULL,1,100.00,100.00,STANDARD - Individual Line,1,Zero amount line excluded
+INV007,Standard Service,NULL,NULL,NULL,2,150.00,300.00,STANDARD - Individual Line,1,Conflict line excluded
