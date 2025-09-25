@@ -1,118 +1,29 @@
-SELECT DISTINCT
-    retta.name,
-    retta.type,
-    stg.tracking_seq_num,
-    stg.company,
-    NULL AS source_user,
-    NULL AS source_system,
-    'SYSTEM' AS system_source,
-    'R12-AR' AS system_name,
-    stg.group_id,
-    CASE
-        WHEN gv_instance_name = gv_prod THEN to_char(reta.trx_date, gv_date_format)
-        ELSE to_char(sysdate, gv_date_format)
-    END AS document_date,
-    to_char(stg.transaction_date, 'YYYY-MM-DD') AS transaction_date,
-    hp.party_name AS customer_name,
-    '00' AS customer_identifier_type,
-    substr(hp.jgzz_fiscal_code, 1, 2) || '-' || substr(hp.jgzz_fiscal_code, 3, 8) || '-' || hca.global_attribute12 AS customer_identifier,
-    hca.account_number AS customer_account_number,
-    hps.party_site_number,
-    h1.address1 || ' ' || h1.address2 || ' ' || h1.address3 || ' ' || h1.address4 AS address_line,
-    h1.city,
-    h1.county,
-    h1.state,
-    h1.postal_code,
-    loci.address1 AS ship_address1,
-    loci.address2 AS ship_address2,
-    loci.city AS ship_city,
-    loci.county AS ship_county,
-    loci.state AS ship_state,
-    loci.country AS ship_country,
-    loci.postal_code AS ship_postal_code,
-    
-    -- Contact information subqueries
-    (SELECT rtrim(xmlagg(xmlelement(e, hcp.email_address || ',')).extract('//text()'), ',')
-     FROM apps.hz_contact_points hcp
-     WHERE hcp.owner_table_id = hp.party_id
-       AND hcp.contact_point_type = 'EMAIL'
-       AND hcp.owner_table_name = 'HZ_PARTIES'
-       AND hcp.status = 'A'
-       AND ROWNUM < 2) AS email_address,
-       
-    (SELECT hcp.phone_area_code || '-' || hcp.phone_number
-     FROM apps.hz_contact_points hcp
-     WHERE hcp.owner_table_id = hp.party_id
-       AND hcp.contact_point_type = 'PHONE'
-       AND hcp.owner_table_name = 'HZ_PARTIES'
-       AND hcp.primary_flag = 'Y'
-       AND hcp.status = 'A'
-       AND ROWNUM < 2) AS phone_number,
-    
-    -- Amount calculations
-    (SELECT abs(transaction_amt)
-     FROM xxefx_ar_brm_chi_trx_int_stg
-     WHERE tracking_seq_num = stg.tracking_seq_num
-       AND line_type = 'HEADER') AS header_amount,
-       
-    (SELECT SUM(abs(transaction_amt))
-     FROM xxefx_ar_brm_chi_trx_int_stg
-     WHERE tracking_seq_num = stg.tracking_seq_num) AS total_amount,
-     
-    -- Due date calculation
-    CASE
-        WHEN terms_lines.due_days IS NOT NULL THEN invoice.transaction_date + terms_lines.due_days
-        WHEN terms_lines.due_day_of_month IS NOT NULL THEN 
-            add_months(trunc(invoice.transaction_date, 'MONTH'), terms_lines.due_months_forward) + terms_lines.due_day_of_month - 1
-        ELSE NULL
-    END AS due_date,
-    
-    -- Currency lookup
-    (SELECT fly.description
-     FROM apps.fnd_lookup_values_vl fly
-     WHERE fly.lookup_type = 'YOAR_CHILE_CURRENCY_CODE_LKP'
-       AND fly.lookup_code = stg.currency
-       AND NVL(fly.enabled_flag, 'N') = 'Y') AS currency_description,
-    
-    -- Additional fields
-    to_char(to_date(trunc(stg.transaction_date, 'MONTH'), 'DD-MON-YY'), 'YYYY-MM-DD') AS period_start_date,
-    to_char(last_day(to_date(stg.transaction_date, 'DD-MON-YY')), 'YYYY-MM-DD') AS period_end_date,
-    
-    emba_ipa_utils_pkg.fn_get_contact_name(stg.der_bill_to_contact_id, ',', 100) AS contact_name,
-    emba_ipa_utils_pkg.fn_get_fax(stg.der_bill_to_contact_id) AS fax_number
 
-FROM
-    xxefx_ar_elo_chi_outbound_log reta,
-    xxefx_ar_brm_chi_trx_int_stg stg,
-    apps.ra_cust_trx_types_all retta,
-    apps.hz_cust_accounts hca,
-    apps.hz_parties hp,
-    apps.hz_cust_site_uses_all hesua,
-    apps.hz_cust_acct_sites_all heasa,
-    apps.hz_party_sites hps,
-    apps.hz_locations h1,
-    apps.hz_cust_site_uses_all suse2,
-    apps.hz_cust_acct_sites_all heasal,
-    apps.hz_party_sites psitel,
-    apps.hz_locations loci,
-    ra_terms terms,
-    ra_terms_lines terms_lines,
-    xxefx_ar_brm_chi_trx_int_stg invoice
+Option 1: Event-Level Rounding
+How it works: Round each transaction individually to the nearest whole number, then add them up.
+Example:
+Each transaction: 47.38 → rounded to 47.
+Total: 47 + 47 + 47 + 47 = 188.
 
-WHERE
-    reta.tracking_seq_num = stg.tracking_seq_num
-    AND stg.der_cust_trx_type_id = retta.cust_trx_type_id
-    AND reta.bill_to_customer_id = hca.cust_account_id
-    AND hca.party_id = hp.party_id
-    AND stg.der_site_use_id = hesua.site_use_id
-    AND hesua.cust_acct_site_id = heasa.cust_acct_site_id
-    AND heasa.party_site_id = hps.party_site_id
-    AND hps.location_id = h1.location_id
-    AND stg.der_site_use_id = suse2.site_use_id (+)
-    AND suse2.cust_acct_site_id = heasal.cust_acct_site_id (+)
-    AND heasal.party_site_id = psitel.party_site_id (+)
-    AND psitel.location_id = loci.location_id (+)
-    AND invoice.der_term_id = terms.term_id
-    AND terms.term_id = terms_lines.term_id
-    AND invoice.legacy_transaction_number = stg.legacy_transaction_number
-    AND stg.tracking_seq_num = NVL(p_customer_trx_id, stg.tracking_seq_num);
+Key point: The total might not match the actual sum of the original amounts (which is 189.52) because rounding happens before adding. This can cause a mismatch between your accounts receivable (AR) and general ledger (GL).
+
+Option 2: Header-Level Rounding
+How it works: Add all transactions first without rounding, then round the header total to the nearest whole number.
+Example:
+Sum of transactions: 47.38 + 47.38 + 47.38 + 47.38 = 189.52.
+Then round 189.52 → 190.
+Key point: The invoice total  Amount is rounded only once, 
+but the individual transactions keep their original values. 
+
+This may also cause a gap between AR and GL because the details don't match the rounded total.
+Simple Analogy:
+
+Think of Option 1 as rounding each item's price at the checkout before summing, while Option 2 is summing all items first and then rounding the total bill. The final amount can differ slightly between the two methods.
+
+
+------ 
+
+For CLP (Chilean Pesos): Rounds to whole numbers (0 decimal places)
+
+For USD (US Dollars): Rounds to 2 decimal places (cents)
+
