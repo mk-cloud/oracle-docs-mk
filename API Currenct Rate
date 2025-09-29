@@ -1,0 +1,131 @@
+I'll help you prepare comprehensive meeting notes and questions for your API discussion with the MDM team. Here's a structured approach:
+Meeting Notes Template - MDM API Integration
+Basic API Information
+Questions to ask:
+
+What is the base URL for the API endpoint(s)?
+Which HTTP methods are supported (GET, POST, PUT, DELETE, PATCH)?
+What is the current API version, and how is versioning handled?
+Is this a REST, SOAP, or GraphQL API?
+What is the purpose/functionality of this specific endpoint?
+
+Authentication & Security
+Questions to ask:
+
+How should the x-api-key be obtained and managed?
+Are there different API keys for different environments (dev/test/prod)?
+What's the API key rotation policy?
+Are there IP whitelisting requirements?
+Is there any additional authentication needed (OAuth, JWT, certificates)?
+What encryption standards are in place (TLS version)?
+
+Request/Response Details
+Questions to ask:
+
+What are the required vs. optional request parameters?
+What should be the Content-Type for requests (application/json, XML, etc.)?
+Can you provide sample request and response payloads?
+What's the maximum payload size allowed?
+Are there any specific data formats or validation rules for fields?
+How should the efx-client-correlation-id be generated (UUID, specific format)?
+
+Rate Limiting & Performance
+Questions to ask:
+
+What are the rate limits for this API?
+Are there daily/hourly/per-minute quotas?
+What's the expected response time/SLA?
+Are there any throttling mechanisms?
+Is there a bulk operation endpoint available?
+What's the maximum number of records per request?
+
+Error Handling
+Questions to ask:
+
+What error codes and messages should we expect?
+How are validation errors structured in the response?
+What's the retry policy for failed requests?
+Are there specific error codes for rate limiting, auth failures, etc.?
+How should timeout scenarios be handled?
+
+Environment & Testing
+Questions to ask:
+
+What environments are available (dev, UAT, staging, prod)?
+Are there different endpoints for each environment?
+Is there a sandbox with test data available?
+Can we get sample test data or test accounts?
+Is there a Postman collection or OpenAPI/Swagger documentation?
+Are there any mock services available?
+
+Integration Specifics
+Questions to ask:
+
+Are there any webhook/callback mechanisms?
+Is pagination supported, and how does it work?
+How are data updates handled (real-time, batch, scheduled)?
+Are there any data filtering or sorting capabilities?
+What's the data retention policy?
+Are there any dependencies on other services/APIs?
+
+Monitoring & Support
+Questions to ask:
+
+How can we monitor API health and availability?
+Is there a status page for the API?
+What logging is available on the API side?
+How should correlation IDs be used for troubleshooting?
+Who is the technical contact for API issues?
+What's the escalation process for production issues?
+Are there any scheduled maintenance windows?
+
+MDM-Specific Questions
+Questions to ask:
+
+What MDM data/entities are exposed through this API?
+How often is the master data updated?
+How are data conflicts resolved?
+What's the golden record selection logic?
+Are there any data governance rules we should be aware of?
+How are data quality scores/confidence levels indicated?
+Can we subscribe to master data change events?
+
+Documentation & Compliance
+Questions to ask:
+
+Where can we find the complete API documentation?
+Are there any compliance requirements (GDPR, CCPA, etc.)?
+What data privacy controls are in place?
+Are there any data residency restrictions?
+Do we need to sign any agreements or NDAs?
+
+Timeline & Next Steps
+Questions to ask:
+
+When will the API be ready for integration testing?
+What's the go-live timeline?
+Are there any planned API changes or deprecations?
+What's the process for requesting new features or changes?
+How are API updates communicated?
+
+Additional Technical Clarifications
+Questions to ask:
+
+Do you support asynchronous operations?
+Is there support for batch operations?
+What date/time format should be used?
+How are null vs. empty values handled?
+Is there field-level encryption for sensitive data?
+What character encoding is supported?
+Are there any special headers we need to be aware of beyond the three mentioned?
+
+Action Items Section:
+
+ Obtain API documentation
+ Request test environment access
+ Get sample API keys
+ Schedule follow-up for any unanswered questions
+ Review security requirements with our team
+ Plan integration testing timeline
+
+Would you like me to focus on any specific area or add questions related to your particular use case?RetryClaude can make mistakes. Please double-check responses.Research Opus 4.1
