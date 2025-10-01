@@ -1,12 +1,6 @@
-DECLARE
-    v_clean_desc VARCHAR2(4000);
-BEGIN
-    v_clean_desc := TRIM(
-        REGEXP_REPLACE(
-            REGEXP_REPLACE(v_product_description, '[' || CHR(0) || '-' || CHR(31) || ']', ''),
-            '[\r\n\t]+', ' '
-        )
-    );
-    
-    -- Use v_clean_desc in your JSON
-END;
+SELECT 
+    SUBSTR(product_description, 56, 1) as char_at_56,
+    ASCII(SUBSTR(product_description, 56, 1)) as ascii_code,
+    DUMP(SUBSTR(product_description, 56, 1)) as hex_dump
+FROM your_table
+WHERE product_description LIKE '%EntMobandSecE3%';
