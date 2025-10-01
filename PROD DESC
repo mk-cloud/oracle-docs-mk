@@ -1,0 +1,12 @@
+DECLARE
+    v_clean_desc VARCHAR2(4000);
+BEGIN
+    v_clean_desc := TRIM(
+        REGEXP_REPLACE(
+            REGEXP_REPLACE(v_product_description, '[' || CHR(0) || '-' || CHR(31) || ']', ''),
+            '[\r\n\t]+', ' '
+        )
+    );
+    
+    -- Use v_clean_desc in your JSON
+END;
