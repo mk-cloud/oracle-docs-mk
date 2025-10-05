@@ -14,3 +14,23 @@ WHERE
     AND mic.category_id = mc.category_id
     AND mic.category_set_id = :p_category_set_id
     AND msib.segment19 LIKE 'CMT-%';
+
+
+
+SELECT 
+    dfcu.descriptive_flexfield_name,
+    dfcu.application_column_name,
+    dfcu.end_user_column_name,
+    dfcu.form_left_prompt,
+    dfcu.column_seq_num,
+    dfcu.enabled_flag,
+    dfcu.required_flag
+FROM 
+    fnd_descr_flex_column_usages dfcu
+WHERE 
+    dfcu.descriptive_flexfield_name = 'MTL_SYSTEM_ITEMS'
+    AND dfcu.application_id = 401  -- Inventory application
+    AND dfcu.enabled_flag = 'Y'
+ORDER BY 
+    dfcu.descriptive_flex_context_code,
+    dfcu.column_seq_num;
