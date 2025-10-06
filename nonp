@@ -1,3 +1,77 @@
+BRM → Uses IX-D00303-D00303-X to identify product bundle
+R12 → Stores in GroupId for tracking
+EIO → Sends as additionalProductDescription
+SII → Records for audit trail
+Customer System → Matches to their procurement records
+
+
+SELECT 
+    stg.tracking_seq_num,
+    stg.transaction_seq_num,
+    ROWNUM                                                          AS sequencial_line_number,
+    SUBSTR(msib.segment19, 1, 25)                                  AS product_code,
+    NULL                                                            AS aux_product_code,
+    commit_qry.quantity                                             AS quantity,
+    commit_qry.unit_price                                           AS unit_price,
+    commit_qry.det_subtotal                                         AS det_subtotal,
+    commit_qry.product_description                                  AS product_description,
+    commit_qry.additional_product_desc                              AS additional_product_desc,
+    '07'                                                            AS uom_code,
+    'UNIDAD'                                                        AS uom_desc,
+    0                                                               AS discount_amount,
+    stg.pricing_type,
+    stg.commitment_flag,
+    stg.dsg_group
+FROM
+    xxrefx_ar_eio_chi_outbound_log rcta,
+    xxrefx_ar_brm_chi_trx_int_stg  stg,
+    mtl_system_items_b              msib,
+    -- INLINE SUBQUERY FOR COMMITMENT GROUPING
+    (
+        SELECT
+            customer_trx_id,
+            interface_line_attribute6                               AS commitment_group,
+            1                                                       AS line_indicator,
+            SUM(quantity_invoiced)                                  AS quantity,
+            ROUND(ABS(SUM(NVL(extended_amount, 0))) / 
+                  NULLIF(SUM(quantity_invoiced), 0), 2)            AS unit_price,
+            ABS(SUM(NVL(extended_amount, 0)))                      AS det_subtotal,
+            LISTAGG(interface_line_attribute4, ' - ') 
+                WITHIN GROUP (ORDER BY interface_line_attribute4)   AS product_description,
+            MIN(interface_line_attribute8)                          AS additional_product_desc,
+            '07'                                                    AS uom_code,
+            'UNIDAD'                                                AS uom_desc,
+            0                                                       AS discount_amount
+        FROM
+            apps.ra_customer_trx_lines_all
+        WHERE
+            1 = 1
+            AND line_type = 'LINE'
+            AND customer_trx_id = :p_customer_trx_id
+            AND interface_line_attribute5 IN ('1', '2')  -- commitment_flag
+        GROUP BY
+            customer_trx_id,
+            interface_line_attribute6
+    ) commit_qry
+WHERE
+    rcta.tracking_seq_num = stg.tracking_seq_num
+    AND stg.der_inv_item_id = msib.inventory_item_id (+)
+    AND stg.der_org_id = msib.organization_id (+)
+    AND stg.customer_trx_id = commit_qry.customer_trx_id (+)
+    AND NVL(stg.interface_line_attribute6, -1) = NVL(commit_qry.commitment_group, -1)
+    AND stg.legacy_line_number IS NOT NULL
+    AND stg.line_type = 'LINE'
+    AND stg.tracking_seq_num = :p_customer_trx_id
+    AND stg.der_amount != 0
+    AND stg.pricing_type = 'Non Progressive'
+    AND stg.commitment_flag IN (1, 2)
+ORDER BY 
+    stg.dsg_group,
+    stg.legacy_line_number;
+
+
+
+
 SELECT 
     msib.segment19,
     msib.description,
