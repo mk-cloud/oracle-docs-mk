@@ -1,0 +1,526 @@
+
+**Final Status**:
+```
+✅ Order Created: ORD-2025-FEB-001
+✅ BRM Bill Generated: BRM_BILL_202502_001
+✅ R12 Invoice: FV-2025-10234
+✅ SII Submitted: Track ID 1234567890
+✅ SII Approved: February 27, 2025
+✅ Customer Notified: Email + Portal
+✅ Customer Approved: March 3, 2025
+✅ Reports Generated: FACT32, SUMA87
+✅ Payment Due: March 15, 2025
+
+# Complete Transaction Flow: From C2O Order to SII Tax Authority
+
+Let me walk you through one complete transaction example based on your architecture.
+
+---
+
+## **EXAMPLE TRANSACTION: Enterprise Customer Monthly Services**
+
+### **Customer Details:**
+- **Customer**: CONSTRUCTORA VALRO SOCIEDAD ANONIMA
+- **Tax ID (RUT)**: 76.123.456-7
+- **Customer Account**: 1320561
+- **Service Period**: February 2025
+- **Contract**: Enterprise Services Bundle
+
+---
+
+## **STEP 1: C2O (Order Capture) - START**
+
+**Date**: February 1, 2025
+
+Customer places order in C2O system:
+
+```
+Order Number: ORD-2025-FEB-001
+Customer: 1320561
+Products Ordered:
+  - Cloud Storage Premium: 2,500 units
+  - Database Management: 1 unit  
+  - 24x7 Technical Support: 1 unit
+  
+Contract Type: Monthly Commitment
+Billing Cycle: Monthly
+Service Period: FEB2025
+```
+
+**C2O creates payload:**
+```xml
+<Order>
+  <OrderID>ORD-2025-FEB-001</OrderID>
+  <CustomerID>1320561</CustomerID>
+  <ServicePeriod>FEB2025</ServicePeriod>
+  <CommitmentType>Monthly</CommitmentType>
+</Order>
+```
+
+---
+
+## **STEP 2: BRM (Billing and Rating)**
+
+**Date**: February 25, 2025 (Month-end billing)
+
+### **2.1: Usage Rating**
+BRM rates the usage events:
+
+```
+Event 1: Cloud Storage Usage
+- Service Code: CLOUD-STOR-001
+- Usage: 2,500 GB
+- Rate: 50 CLP/GB
+- Amount: 125,000 CLP
+- Group: IX-D00303-D00303-X
+
+Event 2: Database Management
+- Service Code: DB-MGMT-002  
+- Usage: 1 instance
+- Rate: 150,000 CLP/instance
+- Amount: 150,000 CLP
+- Group: IX-D00303-D00303-X
+
+Event 3: Technical Support
+- Service Code: TECH-SUPP-24X7
+- Usage: 1 service
+- Rate: 80,000 CLP/service
+- Amount: 80,000 CLP
+- Group: IX-D00303-D00303-X
+```
+
+### **2.2: BRM Creates Bill**
+
+```xml
+<Bill>
+  <BillID>BRM_BILL_202502_001</BillID>
+  <CustomerAccount>1320561</CustomerAccount>
+  <BillDate>2025-02-25</BillDate>
+  <BillItems>
+    <Item>
+      <ProductCode>CLOUD-STOR-001</ProductCode>
+      <TransactionDesc>Cloud Storage Premium Service</TransactionDesc>
+      <ItemAlternativeDescription>IX-D00303-D00303-X</ItemAlternativeDescription>
+      <Quantity>2500</Quantity>
+      <Amount>125000</Amount>
+      <CommitmentFlag>1</CommitmentFlag>
+      <DsgGrp>DSG_9093145</DsgGrp>
+      <PricingType>Non Progressive</PricingType>
+      <ServicePeriod>FEB2024</ServicePeriod>
+    </Item>
+    <Item>
+      <ProductCode>DB-MGMT-002</ProductCode>
+      <TransactionDesc>Database Management Service</TransactionDesc>
+      <ItemAlternativeDescription>IX-D00303-D00303-X</ItemAlternativeDescription>
+      <Quantity>1</Quantity>
+      <Amount>150000</Amount>
+      <CommitmentFlag>1</CommitmentFlag>
+      <DsgGrp>DSG_9093145</DsgGrp>
+      <PricingType>Non Progressive</PricingType>
+      <ServicePeriod>FEB2024</ServicePeriod>
+    </Item>
+    <Item>
+      <ProductCode>TECH-SUPP-24X7</ProductCode>
+      <TransactionDesc>24x7 Technical Support</TransactionDesc>
+      <ItemAlternativeDescription>IX-D00303-D00303-X</ItemAlternativeDescription>
+      <Quantity>1</Quantity>
+      <Amount>80000</Amount>
+      <CommitmentFlag>1</CommitmentFlag>
+      <DsgGrp>DSG_9093145</DsgGrp>
+      <PricingType>Non Progressive</PricingType>
+      <ServicePeriod>FEB2024</ServicePeriod>
+    </Item>
+  </BillItems>
+  <TotalAmount>355000</TotalAmount>
+</Bill>
+```
+
+---
+
+## **STEP 3: AR Extract (BRM → R12)**
+
+**Date**: February 26, 2025
+
+BRM sends bill data to R12 via AR Extract interface.
+
+### **3.1: iREC Extracts Data**
+
+iREC reads BRM bill and transforms to R12 format:
+
+```sql
+INSERT INTO xxrefx_ar_brm_chi_trx_int_stg VALUES (
+  tracking_seq_num: 2098113852,
+  transaction_seq_num: 1,
+  customer_trx_line_id: NULL,
+  product_code: 'CLOUD-STOR-001',
+  product_description: 'Cloud Storage Premium Service',
+  additional_product_desc: 'IX-D00303-D00303-X',
+  der_quantity: 2500,
+  unit_price: 50,
+  der_amount: 125000,
+  commitment_flag: 1,
+  dsg_group: 'DSG_9093145',
+  pricing_type: 'Non Progressive',
+  service_period: 'FEB2024'
+);
+
+INSERT INTO xxrefx_ar_brm_chi_trx_int_stg VALUES (
+  tracking_seq_num: 2098113852,
+  transaction_seq_num: 2,
+  product_code: 'DB-MGMT-002',
+  product_description: 'Database Management Service',
+  additional_product_desc: 'IX-D00303-D00303-X',
+  der_quantity: 1,
+  unit_price: 150000,
+  der_amount: 150000,
+  commitment_flag: 1,
+  dsg_group: 'DSG_9093145',
+  pricing_type: 'Non Progressive'
+);
+
+INSERT INTO xxrefx_ar_brm_chi_trx_int_stg VALUES (
+  tracking_seq_num: 2098113852,
+  transaction_seq_num: 3,
+  product_code: 'TECH-SUPP-24X7',
+  product_description: '24x7 Technical Support',
+  additional_product_desc: 'IX-D00303-D00303-X',
+  der_quantity: 1,
+  unit_price: 80000,
+  der_amount: 80000,
+  commitment_flag: 1,
+  dsg_group: 'DSG_9093145',
+  pricing_type: 'Non Progressive'
+);
+```
+
+---
+
+## **STEP 4: R12 Invoice Generation**
+
+**Date**: February 26, 2025
+
+### **4.1: Query Processes Staging Data**
+
+```sql
+-- Commitment grouping query runs
+SELECT 
+    customer_trx_id: 64826330,
+    commitment_group: 'DSG_9093145',
+    SUM(quantity): 2502,
+    SUM(amount): 355000,
+    calculated_unit_price: 355000/2502 = 141.89
+FROM xxrefx_ar_brm_chi_trx_int_stg
+WHERE commitment_flag = 1
+  AND dsg_group = 'DSG_9093145'
+GROUP BY dsg_group;
+```
+
+### **4.2: R12 Creates Invoice**
+
+```sql
+INSERT INTO ra_customer_trx_all VALUES (
+  customer_trx_id: 64826330,
+  trx_number: 'FV-2025-10234',
+  bill_to_customer_id: 1320561,
+  trx_date: '2025-02-26',
+  invoice_currency_code: 'CLP'
+);
+
+INSERT INTO ra_customer_trx_lines_all VALUES (
+  customer_trx_line_id: 98765432,
+  customer_trx_id: 64826330,
+  line_number: 1,
+  quantity_invoiced: 2502,
+  unit_selling_price: 141.89,
+  extended_amount: 355000,
+  interface_line_attribute4: 'IX-D00303-D00303-X',  -- GroupId
+  interface_line_attribute5: '1',                    -- CommitmentFlag
+  interface_line_attribute6: 'DSG_9093145',          -- DsgGrp
+  description: 'Enterprise Services Bundle - FEB2024'
+);
+```
+
+**Invoice in R12:**
+```
+Invoice Number: FV-2025-10234
+Customer: CONSTRUCTORA VALRO SOCIEDAD ANONIMA
+Date: 2025-02-26
+
+Line 1: Enterprise Services Bundle
+  Quantity: 2,502
+  Unit Price: 141.89 CLP
+  Subtotal: 355,000 CLP
+  Reference: IX-D00303-D00303-X
+
+Subtotal: 355,000 CLP
+IVA (19%): 67,450 CLP
+Total: 422,450 CLP
+```
+
+---
+
+## **STEP 5: EIO (Electronic Invoice Orchestrator)**
+
+**Date**: February 27, 2025
+
+### **5.1: EIO API Called**
+
+R12 triggers EIO API:
+
+```
+POST /api/v1/invoices/generate
+{
+  "customer_trx_id": 64826330,
+  "invoice_number": "FV-2025-10234"
+}
+```
+
+### **5.2: EIO Generates JSON**
+
+```json
+{
+  "documentType": "33",
+  "invoiceNumber": "FV-2025-10234",
+  "issueDate": "2025-02-26",
+  "customerTaxId": "76123456-7",
+  "customerName": "CONSTRUCTORA VALRO SOCIEDAD ANONIMA",
+  "invoiceLines": [
+    {
+      "sequencialLineNumber": 1,
+      "productCode": "ENTERPRISE-BUNDLE",
+      "auxProductCode": "",
+      "quantity": 2502,
+      "unitPrice": 141.89,
+      "subTotal": 355000,
+      "productDescription": "Enterprise Services Bundle - FEB2024",
+      "additionalProductDescription": "IX-D00303-D00303-X",
+      "unitOfMeasurementCode": "07",
+      "unitOfMeasurementDescription": "UNIDAD",
+      "discountAmount": 0
+    }
+  ],
+  "totalAmount": 355000,
+  "taxAmount": 67450,
+  "grandTotal": 422450
+}
+```
+
+---
+
+## **STEP 6: Azurian DTE (Document Management)**
+
+**Date**: February 27, 2025
+
+### **6.1: CAF Sequence Assignment**
+
+Azurian assigns authorized folio number:
+
+```
+Document Type: 33 (Electronic Invoice)
+Folio Number: 10234
+CAF Authorization: Valid until 2025-08-27
+Digital Signature: Applied
+```
+
+### **6.2: Generate XML for SII**
+
+```xml
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<DTE version="1.0">
+  <Documento ID="F10234T33">
+    <Encabezado>
+      <IdDoc>
+        <TipoDTE>33</TipoDTE>
+        <Folio>10234</Folio>
+        <FchEmis>2025-02-26</FchEmis>
+        <FmaPago>1</FmaPago>
+      </IdDoc>
+      <Emisor>
+        <RUTEmisor>77777777-7</RUTEmisor>
+        <RznSoc>MI EMPRESA TELECOM SA</RznSoc>
+      </Emisor>
+      <Receptor>
+        <RUTRecep>76123456-7</RUTRecep>
+        <RznSocRecep>CONSTRUCTORA VALRO SOCIEDAD ANONIMA</RznSocRecep>
+      </Receptor>
+      <Totales>
+        <MntNeto>355000</MntNeto>
+        <TasaIVA>19</TasaIVA>
+        <IVA>67450</IVA>
+        <MntTotal>422450</MntTotal>
+      </Totales>
+    </Encabezado>
+    <Detalle>
+      <NroLinDet>1</NroLinDet>
+      <CdgItem>
+        <TpoCodigo>INT1</TpoCodigo>
+        <VlrCodigo>ENTERPRISE-BUNDLE</VlrCodigo>
+      </CdgItem>
+      <NmbItem>Enterprise Services Bundle - FEB2024</NmbItem>
+      <DscItem>IX-D00303-D00303-X</DscItem>
+      <QtyItem>2502</QtyItem>
+      <UnmdItem>UNIDAD</UnmdItem>
+      <PrcItem>142</PrcItem>
+      <MontoItem>355000</MontoItem>
+    </Detalle>
+    <TED>
+      <DD>
+        <RE>77777777-7</RE>
+        <TD>33</TD>
+        <F>10234</F>
+        <FE>2025-02-26</FE>
+        <MNT>422450</MNT>
+      </DD>
+      <FRMT algoritmo="SHA1withRSA">
+        [DIGITAL SIGNATURE]
+      </FRMT>
+    </TED>
+  </Documento>
+</DTE>
+```
+
+---
+
+## **STEP 7: SII (Tax Authority Submission)**
+
+**Date**: February 27, 2025, 10:30 AM
+
+### **7.1: Azurian Sends to SII**
+
+```
+POST https://sii.cl/dte/recepcion
+Content-Type: application/xml
+
+[DTE XML from Step 6.2]
+```
+
+### **7.2: SII Response**
+
+```xml
+<RespuestaDTE>
+  <Resultado>
+    <Folio>10234</Folio>
+    <Estado>SOK</Estado>
+    <Glosa>DTE Aceptado</Glosa>
+    <TrackID>1234567890</TrackID>
+  </Resultado>
+</RespuestaDTE>
+```
+
+**Status**: Invoice APPROVED by SII
+
+---
+
+## **STEP 8: Invoice Approval & Tracking**
+
+### **8.1: Azurian Tracks Status**
+
+```
+Track ID: 1234567890
+Status: Approved
+Approval Date: 2025-02-27 10:35 AM
+PDF417 Barcode: Generated
+Digital Stamp: Applied
+```
+
+### **8.2: Get Invoice PDF**
+
+EIO retrieves approved PDF from Azurian:
+
+```
+GET /api/invoices/10234/pdf
+Response: PDF with:
+  - DTE data
+  - PDF417 barcode
+  - Digital signature stamp
+  - SII approval stamp
+```
+
+---
+
+## **STEP 9: Customer Delivery**
+
+**Date**: February 27, 2025, 11:00 AM
+
+### **9.1: Email Delivery**
+
+```
+To: cuentas@constructoravalro.cl
+Subject: Invoice FV-2025-10234 - February 2025 Services
+Attachments: 
+  - FV-2025-10234.pdf
+  - FV-2025-10234.xml
+
+Body:
+Dear Customer,
+
+Please find attached your electronic invoice for February 2025 services.
+
+Invoice Number: FV-2025-10234
+Amount: 422,450 CLP
+Due Date: March 15, 2025
+
+Reference Code: IX-D00303-D00303-X
+```
+
+### **9.2: iRec Portal Upload**
+
+Invoice posted to customer portal:
+```
+URL: https://irec.portal/invoices/FV-2025-10234
+Available for download: PDF and XML
+Customer can view/print anytime
+```
+
+---
+
+## **STEP 10: FACT32 & SUMA87 Reports (DAT File)**
+
+**Date**: February 28, 2025
+
+### **10.1: Generate Reports**
+
+```
+FACT32 Report:
+- Invoice: FV-2025-10234
+- Customer: 76123456-7
+- Amount: 355,000 CLP
+- Tax: 67,450 CLP
+- Total: 422,450 CLP
+- Unit Price: 141.89 (2 decimals)
+
+SUMA87 Report:
+- Summary of all February invoices
+- Total invoiced: 422,450 CLP
+```
+
+### **10.2: Email Reports**
+
+```
+To: EFX Customer (finance team)
+Subject: Monthly Invoice Reports - February 2025
+Attachments: 
+  - FACT32_February_2025.pdf
+  - SUMA87_February_2025.pdf
+```
+
+---
+
+## **STEP 11: Customer Approval (8-Day Window)**
+
+**Date**: March 1-7, 2025
+
+Customer has 8 days to review and approve/reject invoice on SII website.
+
+**Customer Action**: APPROVED on March 3, 2025
+
+---
+
+## **END: Transaction Complete**
+
+
+```
+
+---
+
+This completes one full transaction cycle from order to tax authority approval, following the exact architecture from your diagram.
