@@ -1,0 +1,8 @@
+Key decisions made regarding proforma invoices and credit memos:
+
+- For proforma invoices: The PO number should be populated as the document reference. If it’s a proforma-enabled invoice, the PO number comes from the appropriate source tables ([0:05:44], [0:10:09]).
+- For credit memos: The original invoice number must be referenced, not the PO number, since a credit memo is always associated with an existing invoice ([0:05:53], [0:16:12], [0:19:18]).
+- For export invoices, the population logic follows the same pattern: PO number for proforma and original invoice number for credit memos ([0:19:18]-[0:19:34]).
+- Next steps: Migration of code and any changes will be done once CR is approved, with coordination for tomorrow’s schedule ([0:29:22]-[0:29:43]).
+
+If you need the detailed logic or action items, let me know!
