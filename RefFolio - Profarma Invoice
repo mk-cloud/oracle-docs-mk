@@ -1,3 +1,43 @@
+Thank you for providing this context! Now I can give you a complete and accurate answer:
+
+## `refFolio` Population Logic - Two Different Scenarios:
+
+### **Scenario 1: Proforma Invoices (Document Type 110 - Export Invoice)**
+- **`refFolio` = PO Number**
+- When creating an export invoice that references a proforma, you populate `refFolio` with the Purchase Order number
+- Source: PO number from appropriate source tables
+
+### **Scenario 2: Credit Memos (Document Type 112 - Export Credit Note)**
+- **`refFolio` = Original Invoice Number** 
+- When creating a credit memo, you MUST reference the original invoice folio number, NOT the PO number
+- This is because a credit memo is always associated with an existing invoice that was already issued through SII
+
+## Why This Makes Sense:
+
+**For Proforma → Invoice flow:**
+```
+PO #5000 → Proforma → Export Invoice (references PO #5000 in refFolio)
+```
+The invoice is the first official tax document, so it references back to the commercial PO.
+
+**For Invoice → Credit Memo flow:**
+```
+Export Invoice #1931 → Credit Memo (references Invoice #1931 in refFolio)
+```
+The credit memo is correcting/crediting an official tax document, so it MUST reference that tax document's folio number.
+
+## The Key Distinction:
+
+| Document Type | refFolio Contains | Reason |
+|--------------|-------------------|---------|
+| Export Invoice (110) from Proforma | **PO Number** | First tax document, references commercial order |
+| Export Credit Note (112) | **Original Invoice Folio Number** | Must link to the tax document being credited |
+
+This aligns perfectly with the Chilean requirement that credit notes must always reference the original tax document they're modifying, maintaining the tax document chain integrity for SII compliance.
+
+Does this clarify the logic for your implementation?
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
 Key decisions made regarding proforma invoices and credit memos:
 
 - For proforma invoices: The PO number should be populated as the document reference. If it’s a proforma-enabled invoice, the PO number comes from the appropriate source tables ([0:05:44], [0:10:09]).
