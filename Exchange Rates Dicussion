@@ -1,3 +1,28 @@
+CREATE TABLE xxgl_currency_pairs_lookup (
+    lookup_id           NUMBER PRIMARY KEY,
+    source_currency     VARCHAR2(15) NOT NULL,
+    destination_currency VARCHAR2(15) NOT NULL,
+    active_flag         VARCHAR2(1) DEFAULT 'Y',
+    country_code        VARCHAR2(10),
+    created_by          NUMBER,
+    creation_date       DATE,
+    last_updated_by     NUMBER,
+    last_update_date    DATE
+);
+
+-- Insert currency pairs
+INSERT INTO xxgl_currency_pairs_lookup 
+(lookup_id, source_currency, destination_currency, active_flag, country_code)
+VALUES 
+(1, 'USD', 'DOP', 'Y', 'DO'),  -- Dominican Republic
+(2, 'USD', 'CLP', 'Y', 'CL'),  -- Chile
+(3, 'USD', 'PYG', 'Y', 'PY'),  -- Paraguay
+(4, 'USD', 'BRL', 'Y', 'BR'),  -- Brazil (future)
+(5, 'USD', 'MXN', 'Y', 'MX'),  -- Mexico (future)
+(6, 'USD', 'ARS', 'Y', 'AR');  -- Argentina (future)
+
+COMMIT;
+
 Detailed Summary:
 The team discussed enhancements to the currency exchange rate process, focusing on incorporating the Chilean peso (CLP) and potentially other LATAM currencies (like DOP and Paraguay) into the existing exchange rate update program. The current API supports fetching exchange rates between a source and a destination currency for a specified date range, but only one pair per call. The team proposed modifying the program to loop through a lookup list of required currencies, calling the API for each, and storing the results in the GL rates table without overwriting existing data. The need for flexibility to add more currencies in the future was emphasized. There was also discussion about sharing and reviewing the program details to ensure the changes are feasible and efficient.
 
