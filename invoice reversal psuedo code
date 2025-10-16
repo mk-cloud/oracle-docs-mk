@@ -1,0 +1,118 @@
+Database Setup
+
+ Create staging table
+ Create API log table
+ Create configuration table
+ Create sequences
+ Create indexes
+
+ Test connectivity to MDM endpoint
+
+✅ Package Development
+
+ Create package specification
+ Implement data extraction procedures
+ Implement JSON payload generation
+ Implement HTTP call function
+ Implement response processing
+ Implement error handling
+ Implement logging
+
+
+PROCEDURE submit_and_process_invoice_rejection:
+    INPUT: invoice_id, action_type, reason_code, suppression_flag
+    OUTPUT: status, message
+    
+    BEGIN
+        -- STEP 1: VALIDATE INPUT
+        IF invoice_id IS NULL THEN
+            RETURN error "Invoice ID is required"
+        END IF
+        
+        IF action_type NOT IN ('FULL_INVOICE_REVERSAL', 'PARTIAL_REVERSAL') THEN
+            RETURN error "Invalid action type"
+        END IF
+        
+        -- STEP 2: EXTRACT INVOICE DATA FROM R12
+        invoice_data = GET_INVOICE_DETAILS(invoice_id)
+        IF invoice_data IS NULL THEN
+            RETURN error "Invoice not found"
+        END IF
+        
+        -- STEP 3: GENERATE CORRELATION ID
+        correlation_id = GENERATE_CORRELATION_ID()
+        
+        -- STEP 4: INSERT INTO STAGING TABLE
+        staging_id = INSERT_STAGING_RECORD(
+            invoice_id,
+            invoice_data,
+            action_type,
+            reason_code,
+            suppression_flag,
+            correlation_id,
+            status = 'PENDING'
+        )
+        
+        -- STEP 5: GENERATE JSON PAYLOAD
+        json_payload = BUILD_JSON_PAYLOAD(staging_id)
+        
+        UPDATE_STAGING(staging_id, 
+            request_payload = json_payload,
+            status = 'GENERATING_PAYLOAD'
+        )
+        
+        -- STEP 6: GET API CONFIGURATION
+        config = GET_API_CONFIG(environment = 'DEV')
+        endpoint = config.api_endpoint
+        api_key = config.api_key
+        timeout = config.timeout_seconds
+        
+        -- STEP 7: MAKE HTTP CALL TO MDM
+        UPDATE_STAGING(staging_id, status = 'CALLING_MDM')
+        
+        response = CALL_MDM_API(
+            endpoint,
+            api_key,
+            json_payload,
+            correlation_id,
+            timeout
+        )
+        
+        -- STEP 8: LOG API CALL
+        LOG_API_CALL(
+            staging_id,
+            endpoint,
+            json_payload,
+            response
+        )
+        
+        -- STEP 9: PROCESS RESPONSE
+        IF response.http_status IN (200, 201, 202) THEN
+            -- Success
+            UPDATE_STAGING(staging_id,
+                status = 'SUCCESS',
+                http_status_code = response.http_status,
+                response_payload = response.body,
+                error_message = NULL
+            )
+            RETURN success "Successfully submitted to MDM"
+        ELSE
+            -- Error
+            UPDATE_STAGING(staging_id,
+                status = 'ERROR',
+                http_status_code = response.http_status,
+                response_payload = response.body,
+                error_message = response.error_message,
+                retry_count = retry_count + 1
+            )
+            RETURN error response.error_message
+        END IF
+        
+    EXCEPTION WHEN ANY_ERROR THEN
+        UPDATE_STAGING(staging_id,
+            status = 'ERROR',
+            error_message = error.message
+        )
+        RETURN error error.message
+    END
+END PROCEDURE
