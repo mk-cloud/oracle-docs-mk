@@ -1,0 +1,21 @@
+Here's the detailed breakdown of Proforma and Suppression:
+
+Proforma Invoice Scenario:
+- Invoices are created and sent out at a specific time (e.g., 5 PM)
+- Customer might approve the invoice shortly after
+- Later, the operations team might realize the invoice needs to be suppressed
+
+Suppression Process:
+1. If an invoice is mistakenly approved but needs to be suppressed:
+- The operations team will need to update the staging table
+- They must add a suppression flag in both their system and the current system
+- The goal is to prevent the suppressed invoice from being sent to SI (System Integrator)
+
+Key Requirements:
+- Check two conditions before sending an invoice:
+  1. Approval flag is 'Yes'
+  2. Suppression flag is 'No'
+- If either condition is not met, the invoice should not be sent
+- The system needs to handle near real-time suppression, potentially checking every half-hour
+
+The team is working on designing a robust process to handle these edge cases in invoice management.
