@@ -1,19 +1,99 @@
-SELECT 
-    dsg_group,
-    SUM(dsr_quantity) AS total_quantity,
-    ROUND(SUM(dsr_amount) / SUM(dsr_quantity), 6) AS unit_price,
-    SUM(dsr_amount) AS total_amount,
-    MAX(product_description) || ' - Additionals' AS description
-
-FROM xxefx_ar_eio_chi_outbound_log_stg
-
-WHERE 
-    tracking_seq_num = :p_customer_trx_id
-    AND pricing_type = 'Progressive'
-    AND dsr_amount != 0
-
-GROUP BY 
-    dsg_group
-
+SELECT
+    build_qry.customer_trx_line_id,
+    ROWNUM                                                                    sequential_line_number,
+    build_qry.SORT_PRIORITY,
+    build_qry.product_code,
+    build_qry.aux_product_code,
+    round(build_qry.quantity, 0)                                              quantity,
+    round(build_qry.unit_price, 0)                                           unit_price,
+    round(build_qry.dsr_subtotal, 0)                                         dsr_subtotal,
+    build_qry.product_description,
+    replace(replace(upper(build_qry.additional_product_desc), 'N/A', ''), '@', ' * 5') additional_product_desc,
+    build_qry.uom_code,
+    build_qry.uom_desc,
+    build_qry.discount_amount
+FROM
+    (
+        -- NON-PROGRESSIVE LINES (15 columns)
+        SELECT
+            2 AS SORT_PRIORITY,
+            stg.tracking_seq_num,
+            stg.transaction_seq_num                                           customer_trx_line_id,
+            stg.sequential_line_number,
+            stg.legacy_line_number,
+            substr(msib.segment19, 1, 25)                                     product_code,
+            NULL                                                              aux_product_code,
+            stg.dsr_quantity                                                  quantity,
+            abs(stg.unit_price)                                               unit_price,
+            abs(stg.dsr_amount)                                               dsr_subtotal,
+            substr(msib.description, 1, 80)                                   product_description,
+            stg.item_alt_description                                          additional_product_desc,
+            '07'                                                              uom_code,
+            'UNIDAD'                                                          uom_desc,
+            0                                                                 discount_amount
+        FROM
+            xxefx_ar_eio_chi_outbound_log_rcta rcta,
+            xxefx_ar_brm_chi_trx_int_stg      stg,
+            mtl_system_items_b                msib
+        WHERE
+            rcta.tracking_seq_num = stg.tracking_seq_num
+            AND stg.dsr_inv_item_id = msib.inventory_item_id (+)
+            AND stg.dsr_org_id = msib.organization_id (+)
+            AND stg.legacy_line_number IS NOT NULL
+            AND stg.line_type = 'LINE'
+            AND stg.dsr_amount != 0
+            AND stg.tracking_seq_num = :p_customer_trx_id
+            AND stg.commitment_flag IS NULL
+            AND stg.pricing_type IS NULL
+            
+        UNION ALL
+        
+        -- PROGRESSIVE LINES (15 columns - MUST MATCH ABOVE)
+        SELECT DISTINCT
+            1 AS SORT_PRIORITY,
+            stg.tracking_seq_num,
+            stg.transaction_seq_num                                           customer_trx_line_id,
+            stg.sequential_line_number,
+            stg.legacy_line_number,
+            NULL                                                              product_code,
+            NULL                                                              aux_product_code,
+            query_pro.quantity                                                quantity,
+            query_pro.unit_price                                              unit_price,
+            query_pro.dsr_subtotal                                            dsr_subtotal,
+            'Progressive - Additionals'                                       product_description,
+            NULL                                                              additional_product_desc,
+            '07'                                                              uom_code,
+            'UNIDAD'                                                          uom_desc,
+            0                                                                 discount_amount
+        FROM
+            xxefx_ar_eio_chi_outbound_log_rcta rcta,
+            xxefx_ar_brm_chi_trx_int_stg      stg,
+            (
+                SELECT
+                    stg.tracking_seq_num,
+                    SUM(stg.dsr_quantity)                                     quantity,
+                    SUM(stg.dsr_amount)                                       dsr_subtotal,
+                    round(SUM(stg.dsr_amount) / NULLIF(SUM(stg.dsr_quantity), 0), 6) unit_price
+                FROM
+                    xxefx_ar_brm_chi_trx_int_stg stg
+                WHERE
+                    stg.legacy_line_number IS NOT NULL
+                    AND stg.line_type = 'LINE'
+                    AND stg.tracking_seq_num = :p_customer_trx_id
+                    AND stg.commitment_flag IS NULL
+                    AND stg.dsr_amount != 0
+                    AND stg.pricing_type = 'Progressive'
+                GROUP BY
+                    stg.tracking_seq_num
+            ) query_pro
+        WHERE
+            rcta.tracking_seq_num = stg.tracking_seq_num
+            AND query_pro.tracking_seq_num = stg.tracking_seq_num
+            AND stg.line_type = 'LINE'
+            AND stg.dsr_amount != 0
+            AND stg.pricing_type = 'Progressive'
+            AND stg.tracking_seq_num = :p_customer_trx_id
+            AND stg.commitment_flag IS NULL
+    ) build_qry
 ORDER BY 
-    total_amount ASC;
+    build_qry.dsr_subtotal ASC;
