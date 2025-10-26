@@ -1,0 +1,19 @@
+SELECT 
+    dsg_group,
+    SUM(dsr_quantity) AS total_quantity,
+    ROUND(SUM(dsr_amount) / SUM(dsr_quantity), 6) AS unit_price,
+    SUM(dsr_amount) AS total_amount,
+    MAX(product_description) || ' - Additionals' AS description
+
+FROM xxefx_ar_eio_chi_outbound_log_stg
+
+WHERE 
+    tracking_seq_num = :p_customer_trx_id
+    AND pricing_type = 'Progressive'
+    AND dsr_amount != 0
+
+GROUP BY 
+    dsg_group
+
+ORDER BY 
+    total_amount ASC;
