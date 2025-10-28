@@ -1,0 +1,160 @@
+-- =====================================================
+-- Test Script: Execute Package and Verify
+-- Purpose: Test the daily exchange rate load process
+-- Author: Integration Team
+-- Date: October 2025
+-- =====================================================
+
+SET SERVEROUTPUT ON SIZE UNLIMITED
+SET LINESIZE 200
+SET PAGESIZE 1000
+
+DECLARE
+    l_retcode VARCHAR2(10);
+    l_errbuf  VARCHAR2(4000);
+    l_test_date DATE := TRUNC(SYSDATE);
+    l_count NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('Testing Daily Exchange Rate Load');
+    DBMS_OUTPUT.PUT_LINE('Test Date: ' || TO_CHAR(l_test_date, 'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE('Start Time: ' || TO_CHAR(SYSTIMESTAMP, 'DD-MON-YYYY HH24:MI:SS'));
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Execute main procedure
+    DBMS_OUTPUT.PUT_LINE('Calling xxgl_daily_rates_api_pkg.fetch_daily_rates...');
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    xxgl_daily_rates_api_pkg.fetch_daily_rates(
+        p_conversion_date => l_test_date,
+        p_retcode         => l_retcode,
+        p_errbuf          => l_errbuf
+    );
+    
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('Execution Complete');
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('Return Code: ' || l_retcode);
+    DBMS_OUTPUT.PUT_LINE('  0 = Success');
+    DBMS_OUTPUT.PUT_LINE('  1 = Warning (Partial Success)');
+    DBMS_OUTPUT.PUT_LINE('  2 = Error');
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Message: ' || l_errbuf);
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Check results in custom table
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('STEP 1: Custom Interface Table (xxgl_daily_rates_int)');
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    
+    FOR rec IN (
+        SELECT 
+            interface_id,
+            from_currency || ' -> ' || to_currency AS pair,
+            conversion_rate,
+            process_status,
+            response_status_code AS http_code,
+            ROUND(api_call_duration_ms, 2) AS duration_ms
+        FROM xxgl_daily_rates_int
+        WHERE TRUNC(conversion_date) = l_test_date
+        ORDER BY interface_id
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('  ID: ' || LPAD(rec.interface_id, 5) || 
+                           ' | Pair: ' || RPAD(rec.pair, 10) || 
+                           ' | Rate: ' || TO_CHAR(rec.conversion_rate, '999999.9999') || 
+                           ' | Status: ' || RPAD(rec.process_status, 12) ||
+                           ' | HTTP: ' || rec.http_code ||
+                           ' | Duration: ' || rec.duration_ms || ' ms');
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Check results in GL interface table
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('STEP 2: GL Interface Table (gl_daily_rates_interface)');
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    
+    FOR rec IN (
+        SELECT 
+            from_currency || ' -> ' || to_currency AS pair,
+            conversion_rate,
+            status_code,
+            mode_flag,
+            user_conversion_type
+        FROM gl_daily_rates_interface
+        WHERE TRUNC(conversion_date) = l_test_date
+          AND from_currency IN ('USD', 'UF')
+          AND to_currency = 'CLP'
+        ORDER BY from_currency
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('  Pair: ' || RPAD(rec.pair, 10) || 
+                           ' | Rate: ' || TO_CHAR(rec.conversion_rate, '999999.9999') || 
+                           ' | Status: ' || rec.status_code ||
+                           ' | Mode: ' || rec.mode_flag ||
+                           ' | Type: ' || rec.user_conversion_type);
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Summary counts
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('Record Counts Summary');
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    
+    -- Custom Interface Success Count
+    SELECT COUNT(*) INTO l_count
+    FROM xxgl_daily_rates_int
+    WHERE TRUNC(conversion_date) = l_test_date
+      AND process_status = 'API_SUCCESS';
+    DBMS_OUTPUT.PUT_LINE('  ' || RPAD('Custom Interface (Success)', 30) || ': ' || l_count);
+    
+    -- Custom Interface Error Count
+    SELECT COUNT(*) INTO l_count
+    FROM xxgl_daily_rates_int
+    WHERE TRUNC(conversion_date) = l_test_date
+      AND process_status = 'API_ERROR';
+    DBMS_OUTPUT.PUT_LINE('  ' || RPAD('Custom Interface (Error)', 30) || ': ' || l_count);
+    
+    -- GL Interface Count
+    SELECT COUNT(*) INTO l_count
+    FROM gl_daily_rates_interface
+    WHERE TRUNC(conversion_date) = l_test_date
+      AND from_currency IN ('USD', 'UF')
+      AND to_currency = 'CLP'
+      AND status_code = 'I';
+    DBMS_OUTPUT.PUT_LINE('  ' || RPAD('GL Interface (Ready)', 30) || ': ' || l_count);
+    
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('Test Complete - ' || TO_CHAR(SYSTIMESTAMP, 'HH24:MI:SS'));
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Next Steps:');
+    DBMS_OUTPUT.PUT_LINE('  1. Review the output above');
+    DBMS_OUTPUT.PUT_LINE('  2. Run 04_verification_queries.sql for detailed verification');
+    DBMS_OUTPUT.PUT_LINE('  3. Run 06_manual_gldriccp_submission.sql to import to GL_DAILY_RATES');
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('================================================');
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('');
+        DBMS_OUTPUT.PUT_LINE('ERROR: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('BACKTRACE: ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+END;
+/
+
+-- Display any compilation errors
+PROMPT
+PROMPT Checking for package errors...
+SELECT name, type, line, position, text 
+FROM user_errors 
+WHERE name = 'XXGL_DAILY_RATES_API_PKG' 
+  AND type = 'PACKAGE BODY'
+ORDER BY line, position;
+
+PROMPT
+PROMPT =====================================================
+PROMPT Test execution script completed
+PROMPT =====================================================
