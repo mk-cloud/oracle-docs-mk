@@ -1,0 +1,315 @@
+# Kyriba Payment Flow - Complete Example Record
+
+## Scenario: International Wire Payment to Chilean Supplier
+
+---
+
+## 1. SUPPLIER SETUP
+```
+Supplier ID: SUP-CL-001234
+Supplier Name: Comercial Atacama S.A.
+Country: Chile
+Payment Method: International Wire
+```
+
+### Bank Account Details:
+```
+Bank Name: Banco de Chile
+Bank Code (SWIFT): BCHICLRM
+Account Number: 0123456789
+Account Type: Checking
+Currency: CLP (Chilean Peso)
+Branch: Santiago Centro
+```
+
+---
+
+## 2. INVOICE DETAILS
+```
+Invoice Number: INV-2024-5678
+Invoice Date: 2024-10-15
+Invoice Amount: CLP 5,000,000
+Due Date: 2024-11-15
+Payment Terms: Net 30
+GL Account: 2100-Accounts Payable
+Cost Center: CC-LA-001
+```
+
+---
+
+## 3. PAYMENT REQUEST INITIATION
+
+### ERP System Export:
+```
+Payment Request ID: PR-2024-102801
+Requested By: finance.team@company.com
+Request Date: 2024-10-28
+Payment Date: 2024-11-15
+```
+
+### Pay Group Assignment:
+```
+Pay Group: PAY_GRP_CHILE_INTL
+Payment Format: International Wire (SWIFT MT103)
+Bank Account: City Bank - International USD Account
+Account Number: 987654321
+```
+
+---
+
+## 4. KYRIBA PAYMENT TEMPLATE CONFIGURATION
+
+### Template Selection:
+```
+Template Name: Chile_International_Wire_Template
+Template ID: TMPL-CL-INTL-001
+Format Type: XML - SWIFT MT103
+Bank: City Bank
+```
+
+### Payment Profile Settings:
+```
+Profile Name: CityBank_Chile_IntlWire
+Payment Type Code: INTL_WIRE
+Processing Window: 2:00 PM EST cutoff
+Value Date: T+1 (next business day)
+```
+
+---
+
+## 5. XML PAYMENT FILE GENERATION
+
+### Generated Payment Document:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<PaymentInstruction>
+  <DocumentHeader>
+    <DocumentNumber>PAYDOC-2024-102801-001</DocumentNumber>
+    <CreationDateTime>2024-10-28T14:30:00Z</CreationDateTime>
+    <NumberOfTransactions>1</NumberOfTransactions>
+    <ControlSum>5000000.00</ControlSum>
+  </DocumentHeader>
+  
+  <PaymentInformation>
+    <PaymentID>PR-2024-102801</PaymentID>
+    <PaymentMethod>TRF</PaymentMethod>
+    <RequestedExecutionDate>2024-11-15</RequestedExecutionDate>
+    
+    <Debtor>
+      <Name>Your Company Inc.</Name>
+      <AccountNumber>987654321</AccountNumber>
+      <BankCode>CITIUS33</BankCode>
+    </Debtor>
+    
+    <DebtorAgent>
+      <BIC>CITIUS33</BIC>
+      <Name>City Bank N.A.</Name>
+      <Address>
+        <Country>US</Country>
+        <City>New York</City>
+      </Address>
+    </DebtorAgent>
+    
+    <CreditTransferTransaction>
+      <PaymentID>INV-2024-5678</PaymentID>
+      <Amount Currency="CLP">5000000.00</Amount>
+      
+      <Creditor>
+        <Name>Comercial Atacama S.A.</Name>
+        <Address>
+          <StreetName>Av. Libertador Bernardo O'Higgins 1234</StreetName>
+          <City>Santiago</City>
+          <PostalCode>8320000</PostalCode>
+          <Country>CL</Country>
+        </Address>
+      </Creditor>
+      
+      <CreditorAgent>
+        <BIC>BCHICLRM</BIC>
+        <Name>Banco de Chile</Name>
+      </CreditorAgent>
+      
+      <CreditorAccount>
+        <AccountNumber>0123456789</AccountNumber>
+        <AccountType>CHECKING</AccountType>
+      </CreditorAccount>
+      
+      <RemittanceInformation>
+        <Unstructured>Payment for Invoice INV-2024-5678</Unstructured>
+      </RemittanceInformation>
+      
+      <ChargeBearer>SHA</ChargeBearer>
+    </CreditTransferTransaction>
+  </PaymentInformation>
+</PaymentInstruction>
+```
+
+---
+
+## 6. FILE TRANSMISSION
+
+### File Directory Configuration:
+```
+Output Directory: /kyriba/outbound/citybank/chile/
+File Name: PYMNT_CHILE_20241028_143000_001.xml
+Timestamp Format: YYYYMMDD_HHMMSS
+```
+
+### SFTP Transfer Details:
+```
+SFTP Server: sftp.citybank.com
+Port: 22
+Directory: /incoming/payments/
+Authentication: SSH Key + Password
+File Status: Transmitted
+Transmission Time: 2024-10-28 14:35:00
+```
+
+---
+
+## 7. BANK PROCESSING
+
+### City Bank Receipt:
+```
+Bank Reference: CBREF-2024-1028-45678
+Receipt Time: 2024-10-28 14:36:12
+Validation Status: PASSED
+Funds Debited: 2024-11-15 09:00:00
+Wire Fee: USD 45.00
+```
+
+### SWIFT Message:
+```
+Message Type: MT103
+SWIFT Reference: CBKUS33AXXX20241115N1234
+Ordering Customer: Your Company Inc. (987654321)
+Beneficiary: Comercial Atacama S.A. (0123456789)
+Beneficiary Bank: BCHICLRM
+Amount: CLP 5,000,000
+Charge Details: SHA (Shared)
+```
+
+---
+
+## 8. ACKNOWLEDGEMENT FILE
+
+### Bank ACK File Received:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<PaymentStatusReport>
+  <GroupHeader>
+    <MessageID>ACK-CBREF-2024-1028-45678</MessageID>
+    <CreationDateTime>2024-10-28T14:40:00Z</CreationDateTime>
+  </GroupHeader>
+  
+  <OriginalPaymentInformation>
+    <OriginalDocumentNumber>PAYDOC-2024-102801-001</OriginalDocumentNumber>
+    <OriginalPaymentID>PR-2024-102801</OriginalPaymentID>
+  </OriginalPaymentInformation>
+  
+  <TransactionStatus>
+    <StatusCode>ACCP</StatusCode>
+    <StatusDescription>Accepted for Processing</StatusDescription>
+    <BankReference>CBREF-2024-1028-45678</BankReference>
+    <ValueDate>2024-11-15</ValueDate>
+    <ProcessingFee Currency="USD">45.00</ProcessingFee>
+  </TransactionStatus>
+</PaymentStatusReport>
+```
+
+---
+
+## 9. GL FILE GENERATION
+
+### GL Impact Entry:
+```
+Entry Date: 2024-11-15
+Posting Date: 2024-11-15
+
+Dr: 2100 - Accounts Payable          CLP 5,000,000.00
+Cr: 1010 - Cash - City Bank USD       USD 5,405.41*
+Cr: 5200 - Bank Fees                  USD 45.00
+
+*Converted at rate: 1 USD = 925.50 CLP
+Reference: PR-2024-102801 / INV-2024-5678
+Document: PAYDOC-2024-102801-001
+Cost Center: CC-LA-001
+```
+
+### GL File Format:
+```
+GLDATE|ACCOUNT|DEBIT|CREDIT|CURRENCY|REFERENCE|DESCRIPTION
+20241115|2100|5000000.00|0.00|CLP|PR-2024-102801|Payment to Comercial Atacama
+20241115|1010|0.00|5405.41|USD|PR-2024-102801|Wire Transfer - City Bank
+20241115|5200|0.00|45.00|USD|PR-2024-102801|International Wire Fee
+```
+
+---
+
+## 10. KYRIBA DASHBOARD STATUS
+
+### Payment Tracking:
+```
+Status: COMPLETED
+Workflow Stage: Settled
+Created: 2024-10-28 14:30:00
+Submitted: 2024-10-28 14:35:00
+Bank Accepted: 2024-10-28 14:40:00
+Value Date: 2024-11-15
+Settlement Date: 2024-11-15
+Approvers: [manager@company.com, treasury@company.com]
+```
+
+---
+
+## KEY CONFIGURATION CHECKPOINTS
+
+### ✓ Payment Template
+- Format: SWIFT MT103 XML
+- Bank: City Bank
+- Currency: Multi-currency (USD debit, CLP credit)
+
+### ✓ Payment Profile
+- Type: International Wire
+- Cutoff: 2:00 PM EST
+- STP Enabled: Yes
+
+### ✓ Bank Account Setup
+- Account: City Bank International USD
+- SWIFT: CITIUS33
+- Payment Types: International Wire enabled
+
+### ✓ Pay Group Configuration
+- Group: PAY_GRP_CHILE_INTL
+- Suppliers: All Chilean international suppliers
+- Auto-select template: Yes
+
+### ✓ File Integration
+- Outbound: SFTP to City Bank
+- Inbound: ACK file polling every 5 minutes
+- GL File: Auto-generate on settlement
+
+### ✓ Security & Approvals
+- Dual approval required for > USD 10,000
+- Payment limits enforced
+- Audit trail maintained
+
+---
+
+## TROUBLESHOOTING NOTES
+
+**Common Issues:**
+1. SWIFT code validation failure → Verify BIC format
+2. Currency mismatch → Ensure CLP setup in bank master
+3. ACK file not received → Check SFTP connectivity
+4. GL file USD conversion → Verify exchange rate source
+5. File timestamp issues → Sync server time zones
+
+**Testing Checklist:**
+- [ ] Template generates valid XML
+- [ ] File transmits to bank successfully
+- [ ] ACK file imports correctly
+- [ ] GL entries post accurately
+- [ ] Status updates in dashboard
+- [ ] Approval workflow functions
+- [ ] Error handling works properly
