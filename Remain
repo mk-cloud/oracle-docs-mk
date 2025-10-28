@@ -1,0 +1,34 @@
+Here's a professional email you can use:
+
+---
+
+**Subject:** Issue with Invoice JSON Payload - reffolio and unitPrice Validation Errors
+
+Hi Mauro,
+
+I hope this email finds you well.
+
+I'm encountering validation errors when submitting the invoice JSON payload, and I wanted to reach out for clarification on two specific issues:
+
+**1. reffolio attribute error:**
+I'm receiving an error indicating that the "reffolio" attribute in the "documentReference" object only accepts numeric values, not alphanumerics. In my request, I'm sending the value "P00123" which contains both letters and numbers. Could you confirm whether:
+- The attribute should only contain numeric values, or
+- If alphanumeric values are supported, what format is expected?
+
+**2. unitPrice precision error:**
+I'm also getting "invalid number precision" errors for the unitPrice fields in documentDetail. The error appears multiple times with transaction ID "1029991". Could you clarify:
+- What is the maximum number of decimal places allowed for unitPrice?
+- Is there a specific format or precision requirement I should follow?
+
+Additionally, I noticed a potential inconsistency mentioned in your earlier message: the main document is type 34 (exempt electronic invoice) but references another exempt electronic invoice in the documentReference attribute with refType. Should an exempt invoice reference another exempt invoice, or is there a different document type that should be referenced?
+
+I would appreciate any guidance you can provide on resolving these validation issues.
+
+Thank you for your assistance!
+
+Best regards,
+[Your Name]
+
+---
+
+Would you like me to adjust the tone or add any additional details?
