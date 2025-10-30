@@ -1,0 +1,33 @@
+ ORACLE APIs USED FOR KYRIBA PAYMENT INTEGRATION
+
+ PRIMARY PAYMENT APIs
+- `POST /fscmRestApi/resources/11.13.18.05/paymentProcessRequests`
+- `GET /fscmRestApi/resources/11.13.18.05/paymentProcessRequests/{ProcessRequestId}`
+- `GET /fscmRestApi/resources/11.13.18.05/payments`
+- `GET /fscmRestApi/resources/11.13.18.05/payments/{PaymentId}`
+- `GET /fscmRestApi/resources/11.13.18.05/paymentInstructions/{InstructionId}`
+- `GET /fscmRestApi/resources/11.13.18.05/paymentInstructions/{InstructionId}/enclosure/FormattedFile`
+
+ PAYEE & BANK DETAILS APIs
+- `GET /fscmRestApi/resources/11.13.18.05/externalPayees/{PayeeId}`
+- `GET /fscmRestApi/resources/11.13.18.05/externalPayees/{PayeeId}/child/externalBankAccounts`
+- `GET /fscmRestApi/resources/11.13.18.05/suppliers/{SupplierId}/child/bankAccounts`
+
+ PAYMENT STATUS UPDATE APIs (FROM KYRIBA)
+- `POST /fscmRestApi/resources/11.13.18.05/paymentConfirmations`
+- `POST /fscmRestApi/resources/11.13.18.05/paymentStopRequests`
+- `POST /fscmRestApi/resources/11.13.18.05/payments/{PaymentId}/action/void`
+
+ REMITTANCE & INVOICE DETAILS APIs
+- `GET /fscmRestApi/resources/11.13.18.05/disbursements/{DisbursementId}`
+- `GET /fscmRestApi/resources/11.13.18.05/invoices/{InvoiceId}`
+
+ BANK RECONCILIATION APIs (FROM KYRIBA)
+- `POST /fscmRestApi/resources/11.13.18.05/cashBankStatements`
+- `POST /fscmRestApi/resources/11.13.18.05/cashTransactions`
+
+ EVENT SUBSCRIPTION API
+- `POST /fscmRestApi/events/subscription/resources/11.13.18.05/payments`
+
+ BULK EXTRACT API
+- `POST /fscmRestApi/resources/11.13.18.05/erpintegrations`
