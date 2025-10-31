@@ -1,0 +1,46 @@
+Based on the conversation, here are the key points about profiles:
+
+Profile Details:
+- Profiles are country-specific (e.g., USD for USA, CAD for Canada, IRA for Ireland)
+- When running the program, you must check the profile to determine the country
+- Different profiles have different bank number ranges (e.g., USD profile bank numbers start with 5411634)
+- The program should combine the profile and bank number for searching and processing files
+
+Profile Access Restrictions:
+- The City bank statement program can be accessed by:
+  - USD (United States)
+  - CAD (Canada)
+  - Currently excluding other countries
+- Wells Fargo program will have a different access configuration
+
+---
+
+Would you like more details about how profiles are used in file processing?
+
+
+Here's the meeting summary based on the conversation:
+
+Summary:
+- The meeting focused on processing bank statements using a specific request set
+- Key discussion points included:
+  - Decrypting and processing bank statements
+  - Creating file naming conventions using bank account numbers
+  - Developing separate programs for different banks (Wells Fargo, City)
+  - Configuring access and parameters for bank statement processing
+
+Action Items:
+- Create a new request set for the Oracle-seeded program
+- Review and modify the existing host program
+- Connect with Venkat about T program changes
+- Develop file naming standards (e.g., EFX, USD, Wells)
+- Obtain and share the UID for the request set
+
+Participants mentioned:
+- Vinay Kaveti
+- Shankar
+- Gauri
+- Venkat
+
+---
+
+Would you like me to elaborate on any specific aspect of the meeting summary?
