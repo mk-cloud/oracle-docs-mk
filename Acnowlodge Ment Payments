@@ -1,0 +1,108 @@
+Based on this conversation about **acknowledgement files from the AP team**, here's what Ipshita is saying and the action items:
+
+## **What Ipshita is Saying:**
+
+1. **Issue Identified:**
+   - Geraldo asked about **missing/new information on acknowledgement files** from the AP (Accounts Payable) team
+   - This needs to be checked with Ipshita for an update
+
+2. **Solution Proposed:**
+   - They can create a **program to send the XML files** to the team
+   - Pavan needs to proceed with this solution
+   - This is a **new add-on** functionality
+
+3. **CR Created:**
+   - Someone will create a **Change Request (CR)** for this enhancement
+   - **CR# CHG1085412** has been created
+
+## **What This Means:**
+
+### **Context:**
+- **Acknowledgement files** = Confirmation files that payments were received/processed
+- **AP Team** = Accounts Payable team that processes payments
+- **XML files** = Structured data format for acknowledgement information
+
+### **The Problem:**
+- Current acknowledgement files are missing some information
+- AP team needs additional data in these files
+- Manual process or incomplete data is causing issues
+
+### **The Solution:**
+- Develop a new program to automatically generate and send XML acknowledgement files
+- This will ensure complete information is included
+- Automates what might currently be a manual process
+
+## **Action Items:**
+
+### **IMMEDIATE ACTIONS:**
+
+1. **For Ipshita:**
+   - Review and approve the CR (CHG1085412)
+   - Provide detailed requirements for the acknowledgement file format
+   - Specify what information was missing/needed
+
+2. **For Pavan:**
+   - Begin development of the XML file generation program
+   - Coordinate with Ipshita on requirements
+   - Estimate timeline for completion
+
+3. **For Geraldo:**
+   - Document the current gaps in acknowledgement files
+   - Provide test scenarios for validation
+   - Coordinate with AP team on their requirements
+
+### **FOLLOW-UP ACTIONS:**
+
+4. **Technical Tasks:**
+   ```
+   - Design XML schema for acknowledgement files
+   - Develop extraction logic from payment systems
+   - Create automated sending mechanism
+   - Set up scheduling for file generation
+   - Implement error handling
+   ```
+
+5. **Testing Requirements:**
+   ```
+   - Unit testing of XML generation
+   - Validate all required fields are included
+   - Test file transmission to AP team
+   - Verify AP team can process the files
+   - UAT with actual payment data
+   ```
+
+## **Project Management Items:**
+
+### **CR Details to Track:**
+- **CR Number:** CHG1085412
+- **Type:** Enhancement/New Development
+- **Priority:** [To be determined]
+- **Timeline:** [To be determined]
+- **Stakeholders:** Ipshita, Pavan, Geraldo, AP Team
+
+### **Deliverables:**
+1. XML file generation program
+2. Automated sending mechanism
+3. Documentation of file format
+4. Testing results
+5. Deployment plan
+
+## **Key Questions to Ask:**
+
+1. What specific information was missing from current acknowledgement files?
+2. What is the expected XML schema/format?
+3. How frequently should these files be generated?
+4. Who are the recipients in the AP team?
+5. What's the target completion date?
+6. Are there any compliance/audit requirements?
+
+## **Next Steps Summary:**
+
+| Who | What | When |
+|-----|------|------|
+| Ipshita | Provide detailed requirements | ASAP |
+| Pavan | Start development planning | After requirements |
+| Geraldo | Coordinate with AP team | Immediately |
+| All | Review CR CHG1085412 | Within 1-2 days |
+
+This appears to be an enhancement to improve the payment acknowledgement process by automating the generation and distribution of comprehensive XML files to the AP team, ensuring all necessary information is included.
