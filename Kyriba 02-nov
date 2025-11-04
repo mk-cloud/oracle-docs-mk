@@ -1,0 +1,17 @@
+Regarding acknowledgement, it was discussed that "acknowledgement files" are the files received as confirmation of payment status and file status. 
+At this stage, no new information on acknowledgement was available from the AP team, 
+and it was recommended that this be checked with Ipshita for an update. It was also suggested to track this topic in Gory's updates so everyone can monitor its progress.
+
+
+Here are the key important points from the meeting:
+
+- Ongoing issues and escalations with ticket logging and visibility, especially for Wells Fargo and Kariba.
+- Payment processing changes are impacting the Brazil team, with recent adjustments by Chris, and the need to review how those changes affect approvals.
+- Statements and payments are being tested post-migration to UAT; issues with receiving and processing statements were noted, and team changes (Chinmaya and Power replacing Shankar and Subrancha) were announced.
+- Outstanding questions about acknowledgement files (confirmation of payment/file status) remain, and further information will be checked with Ipshita and tracked in team updates.
+- There is an impending significant change in API certification coming in May 2026, requiring coordination with internal IT and considerations for client impact.
+- Implementing and supporting bank APIs is universally challenging, with the group agreeing on a cautious and flexible approach due to uncertain timelines and requirements.
+- Specific action items include: reaching out to Chris about Brazil payments impact, escalating tickets with Yash, and planning for API certification transition.
+
+---
+Would you like a brief list of next steps or assigned action items from this meeting?
