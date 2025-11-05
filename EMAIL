@@ -1,0 +1,57 @@
+Here's an email for approval to open the September period in UAT:
+
+---
+
+**Subject: URGENT: Approval Required to Open September Period in UAT - Kyriba Testing**
+
+**To:** [Finance Manager/System Administrator]  
+**Cc:** Adrian Mendizábal, Ipshita Gupta, Katherine Camacho, [Project Manager]
+
+Dear [Manager Name],
+
+I am writing to request urgent approval to **reopen the September 2025 period in the UAT environment** for critical Kyriba Journal Entries Export testing.
+
+**Background:**
+- Our UAT environment was recently cloned and the code has been remigrated
+- Adrian had previously sent test files with September dates, but we were initially requested to use October dates as the September period was closed in UAT
+- However, we've now discovered that our test environment refresh schedule only contains September data
+
+**Critical Issue:**
+As confirmed by Adrian Mendizábal, the test refresh that occurred on **9/24** has resulted in our test environment containing data only from **9/21**. This means we cannot proceed with October period testing as originally planned.
+
+**Business Impact:**
+- Testing for the Kyriba Payment File Outbound integration is currently blocked
+- The Chile-Citi Bank payment integration testing cannot proceed without this
+- This delay impacts our go-live timeline for the payment automation project
+
+**Specific Request:**
+We need to reopen the September period in UAT to process test files for the following dates:
+- 09/10/2025 (15 transactions)
+- 09/11/2025 (16 transactions)
+- 09/12/2025 (15 transactions)
+- 09/13/2025 (32 transactions)
+
+**Justification:**
+Opening the September period is the most efficient solution as:
+1. All test data is already available for September
+2. Re-running the test environment refresh for October would cause significant delays
+3. The test files are already prepared with September dates
+
+Please see the attached email thread for complete context and discussion among the team.
+
+We kindly request your approval by **[specific time]** today to avoid further testing delays.
+
+Thank you for your urgent attention to this matter.
+
+Best regards,  
+[Your Name]  
+[Your Title]  
+[Contact Information]
+
+**Attachments:**
+- Email thread: [IE] Kyriba Journal Entries Export discussion
+- Test environment refresh timeline documentation
+
+---
+
+This email clearly explains the situation, provides business justification, and creates urgency for the approval while maintaining professional tone.
