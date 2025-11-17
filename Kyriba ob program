@@ -22,3 +22,63 @@ Based on the email regarding the Kyriba New Outbound Program Development, here's
 - File delimiter/separator specifications
 - Character encoding (UTF-8, ASCII, etc.)
 - Business process triggering rules
+
+
+Based on the Kyriba New Outbound Program Development requirements, here are the **parameters needed for the program**:
+
+**File Transfer Parameters:**
+- Source directory path
+- Destination directory path
+- Archive directory path
+- Error directory path
+- Backup directory path
+
+**File Processing Parameters:**
+- File name pattern/mask
+- File extension
+- File delimiter (comma, pipe, tab, etc.)
+- File encoding (UTF-8, ASCII, ISO-8859-1, etc.)
+- Header row indicator (Y/N)
+- Footer row indicator (Y/N)
+- Record terminator
+
+**Connection Parameters:**
+- SFTP/FTP host name
+- Port number
+- Username
+- Authentication method (password/key-based)
+- Connection timeout value
+- Retry attempts
+- Retry interval
+
+**Security Parameters:**
+- Encryption type (GPG/PGP)
+- Public key location
+- Private key location
+- Passphrase (if applicable)
+
+**Processing Parameters:**
+- Batch size
+- Processing frequency (hourly/daily/real-time)
+- Start time/schedule
+- UID value
+- Operating Unit ID
+- Ledger ID
+- Business Unit
+
+**Notification Parameters:**
+- Success notification email list
+- Failure notification email list
+- SMTP server details
+- Email subject line format
+
+**Logging Parameters:**
+- Log file location
+- Log level (DEBUG/INFO/ERROR)
+- Log retention days
+
+**Error Handling Parameters:**
+- Max error threshold
+- Error notification trigger
+- Duplicate file handling logic
+- Incomplete file handling
