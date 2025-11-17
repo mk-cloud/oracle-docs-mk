@@ -1,0 +1,24 @@
+Based on the email regarding the Kyriba New Outbound Program Development, here's the information you'll need:
+
+**Required Information:**
+
+- UID (User ID) for inbound acknowledgement file placement
+- Designated inbound folder location/path
+- File format for acknowledgement files
+- File naming convention
+- File transfer protocol (SFTP/FTP details)
+- SFTP/FTP server credentials (host, port, username)
+- Source folder path where Kyriba places acknowledgement files
+- Destination folder path for AP Team Distribution List
+- Email distribution list for AP Team
+- File processing frequency/schedule
+- Success/failure notification email recipients
+- Error handling procedure requirements
+- File archive location/retention policy
+- Business owner contact information
+- Technical contact information for Kyriba team
+- Expected file size/volume
+- Encryption requirements (GPG/PGP keys if applicable)
+- File delimiter/separator specifications
+- Character encoding (UTF-8, ASCII, etc.)
+- Business process triggering rules
