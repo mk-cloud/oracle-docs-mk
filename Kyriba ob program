@@ -24,6 +24,37 @@ Based on the email regarding the Kyriba New Outbound Program Development, here's
 - Business process triggering rules
 
 
+Here are the key points from your meeting:
+
+**Important Points:**
+- You need to process inbound XML files using a shell script or similar program.
+- Reuse or modify an existing program or shell script found in the DBA source/APO directory—especially those already handling logging and file processing.
+- Files should be archived after processing; use existing archive folders, no need to create new ones.
+- The archive (sometimes called "process" folder) is standard for all such programs.
+- Use a UID and, if needed, an encryption key (check if encryption is required for your files).
+- For sending acknowledgment files by email, avoid hardcoding addresses; use a lookup or distribution list.
+- Scheduling and authentication requirements need confirmation—check with Katherine.
+- Start development with any sample XML file, adjust code as details become available.
+
+**Whom to Contact for Existing Program Information:**
+- The Support Team (for examples/support)
+- Tarun
+- Katherine (for testing email address, scheduling, and possibly DL email ID)
+- Chinma (may not remember details offhand, but could be helpful)
+- Other colleagues familiar with emailing from the server
+
+**Description:**
+The goal is to create or modify a shell script/program that:
+- Monitors for inbound XML files in a specific directory.
+- Processes these files (possibly converting into an LOB).
+- Logs activity and archives the files after processing.
+- Optionally encrypts/decrypts files as required.
+- Sends processed files by email, using a lookup for dynamic email addresses.
+- Scheduling, authentication, and final naming conventions should be finalized in consultation with Katherine or Support.
+
+---
+Would you like a more detailed breakdown of the process steps or help drafting questions for Katherine or Support?
+
 Based on the Kyriba New Outbound Program Development requirements, here are the **parameters needed for the program**:
 
 **File Transfer Parameters:**
