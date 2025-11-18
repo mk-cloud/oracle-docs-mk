@@ -1,0 +1,31 @@
+SELECT 
+    CASE 
+        WHEN LENGTH(LISTAGG(hcp.email_address, ',') WITHIN GROUP (ORDER BY hcp.contact_point_id)) <= 1000 THEN
+            -- If total length is within 1000, return all
+            LISTAGG(hcp.email_address, ',') WITHIN GROUP (ORDER BY hcp.contact_point_id)
+        ELSE
+            -- If exceeds 1000, trim to last complete email before 1000 chars
+            SUBSTR(
+                LISTAGG(hcp.email_address, ',') WITHIN GROUP (ORDER BY hcp.contact_point_id),
+                1,
+                INSTR(
+                    SUBSTR(LISTAGG(hcp.email_address, ',') WITHIN GROUP (ORDER BY hcp.contact_point_id), 1, 1000),
+                    ',',
+                    -1
+                ) - 1
+            )
+    END AS email_address
+FROM 
+    apps.hz_org_contact_roles ocr,
+    apps.hz_org_contacts oc,
+    apps.hz_parties hp1,
+    apps.hz_relationships hr,
+    apps.hz_contact_points hcp
+WHERE 
+    hr.subject_id = hp.party_id -- 6579064 --6575064 --103056
+    AND hr.object_id = hp1.party_id
+    AND hr.relationship_id = oc.party_relationship_id
+    AND oc.org_contact_id = ocr.org_contact_id (+)
+    AND hr.subject_id = hcp.owner_table_id (+)
+    AND hcp.contact_point_type (+) = 'EMAIL'
+GROUP BY hr.subject_id;
