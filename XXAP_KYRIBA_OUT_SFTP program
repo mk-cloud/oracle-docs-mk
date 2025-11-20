@@ -1,0 +1,398 @@
+Great question! Let me break down who generates this file and the complete step-by-step process.
+
+## File Name Breakdown
+
+**EFXTHS.NC4.IMPORT.USD_INT_149745361.PY_BULK.PY_IRBW.NULL.NULL.pgp**
+
+- **EFXTHS** = Company code (Equifax Chile/subsidiary)
+- **NC4** = Entity or business unit identifier
+- **IMPORT** = Import payment type
+- **USD_INT** = Currency (USD) + Internal payment type
+- **149745361** = Payment batch ID or request ID
+- **PY_BULK** = Payment Bulk processing
+- **PY_IRBW** = Payment format/template identifier
+- **NULL.NULL** = Additional parameters (not used in this case)
+- **.pgp** = Encrypted file extension (after GPG encryption)
+
+---
+
+## Who Generates This File?
+
+### **Oracle EBS Payables Module** generates this file through the standard payment processing cycle.
+
+---
+
+## Complete Step-by-Step Generation Process
+
+### **STEP 1: Invoice Processing (AP Module)**
+
+```
+User Action: Process supplier invoices in Oracle Payables
+↓
+System: Invoices validated and approved
+↓
+Status: Ready for payment
+```
+
+**Navigation in Oracle:**
+- Payables → Invoices → Entry → Invoice Batches
+- Or: Payables → Invoices → Entry → Invoices
+
+**What Happens:**
+- Invoices entered/imported into AP
+- Validated (accounting, matching, approval)
+- Approved and ready to pay
+
+---
+
+### **STEP 2: Payment Process Request (PPR)**
+
+```
+User Action: Create Payment Process Request
+↓
+System: Selects invoices for payment
+↓
+Output: Payment batch created
+```
+
+**Navigation:**
+- Payables → Payments → Payment Process Requests
+- Or: Payables → Payments → Entry → Payment Batches
+
+**Key Parameters Set:**
+- **Payment Date**: When to pay
+- **Payment Method**: Electronic (EFT/Wire/ACH)
+- **Bank Account**: Your disbursement account
+- **Supplier Selection**: Which suppliers to pay
+- **Currency**: USD (in your case)
+- **Payment Format**: IRBW format template
+- **Template**: PY_IRBW (Kyriba format)
+
+**This creates Request ID: 149745361** (from your filename)
+
+---
+
+### **STEP 3: Format Payment Instructions**
+
+```
+User Action: Run "Format Payment Instructions" program
+↓
+System: Generates payment file from batch
+↓
+Output: Creates file in outbound directory
+```
+
+**Concurrent Program:**
+- **Program Name**: Format Payment Instructions
+- **Or Custom**: XXAP_FORMAT_PAYMENTS (if customized)
+
+**What This Program Does:**
+1. Reads payment batch data (Request 149745361)
+2. Applies payment format template (PY_IRBW)
+3. Generates flat file in Kyriba-expected format
+4. Places file in: `/app/applcsf/EBSFIN01/appl/xxap/data/outbound/`
+5. **Original filename**: `EFXTHS.NC4.IMPORT.USD_INT_149745361.PY_BULK.PY_IRBW.NULL.NULL`
+
+---
+
+### **STEP 4: Encryption (Automatic)**
+
+```
+System Action: XXAP_KYRIBA_OUT_SFTP program picks up file
+↓
+Encrypts using GPG with Kyriba public key
+↓
+Adds .pgp extension
+```
+
+**This is what you saw in the log:**
+```
+Encryption Successful
+ssh.askpass: exec(/usr/libexec/openssh/ssh-askpass): No such file or directory
+```
+
+**Technical Details:**
+- Uses GPG (GNU Privacy Guard)
+- Public Key: Kyriba's public key (stored in Oracle EBS)
+- Algorithm: Likely PGP/GPG standard (RSA + AES)
+- **New filename**: `EFXTHS.NC4.IMPORT.USD_INT_149725361.PY_BULK.PY_IRBW.NULL.NULL.pgp`
+
+---
+
+### **STEP 5: SFTP Transfer (Automatic)**
+
+```
+System: Connects to Equifax MFT server
+↓
+Transfers encrypted .pgp file
+↓
+Archives original to Processed folder
+```
+
+**Connection Details:**
+- Host: `umt.mft2.equifax.com`
+- User: `kyriba (acceptance)`
+- Key: `CORP_EBS_Dev_Inbound`
+
+---
+
+## Detailed Technical Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PAYMENT FILE GENERATION PROCESS                            │
+└─────────────────────────────────────────────────────────────┘
+
+USER LAYER (Oracle EBS Forms/UI)
+├─ Step 1: Enter/Import Invoices
+│  └─ AP Invoices Module
+│
+├─ Step 2: Create Payment Batch
+│  └─ Payment Process Request (PPR)
+│     Parameters:
+│     - Payment Date
+│     - Bank Account
+│     - Payment Method: Electronic
+│     - Template: PY_IRBW
+│     - Currency: USD
+│     - Batch ID: 149745361
+│
+└─ Step 3: Submit Format Program
+   └─ Format Payment Instructions
+      └─ Uses Payment Format: IRBW
+
+                ↓
+
+APPLICATION LAYER (Concurrent Manager)
+├─ Format Payment Instructions Program
+│  └─ Input: Payment batch 149745361
+│  └─ Template: PY_IRBW (Kyriba XML/Flat format)
+│  └─ Output: Raw payment file
+│     Location: /app/applcsf/EBSFIN01/appl/xxap/data/outbound/
+│     Filename: EFXTHS.NC4.IMPORT.USD_INT_149745361.PY_BULK.PY_IRBW.NULL.NULL
+│
+│     File Contents (Sample):
+│     ┌─────────────────────────────────────┐
+│     │ Header Section                      │
+│     │ - Company: EFXTHS                   │
+│     │ - Batch ID: 149745361              │
+│     │ - Total Amount: $XXX,XXX.XX        │
+│     │ - Currency: USD                     │
+│     │ - Payment Count: XX                 │
+│     ├─────────────────────────────────────┤
+│     │ Payment Details (Loop)              │
+│     │ - Supplier Name                     │
+│     │ - Bank Account                      │
+│     │ - Amount                            │
+│     │ - Reference/Invoice Numbers         │
+│     │ - Payment Instructions              │
+│     ├─────────────────────────────────────┤
+│     │ Trailer Section                     │
+│     │ - Total Amount                      │
+│     │ - Record Count                      │
+│     └─────────────────────────────────────┘
+
+                ↓
+
+AUTOMATION LAYER (XXAP_KYRIBA_OUT_SFTP)
+├─ File Detection
+│  └─ Scans: /app/applcsf/EBSFIN01/appl/xxap/data/outbound/
+│  └─ Picks up: EFXTHS.NC4.IMPORT.USD_INT_149745361.PY_BULK.PY_IRBW.NULL.NULL
+│
+├─ GPG Encryption
+│  └─ Command: gpg --encrypt --recipient kyriba_public_key --output file.pgp
+│  └─ Key: Kyriba's public key
+│  └─ Result: EFXTHS.NC4.IMPORT.USD_INT_149745361.PY_BULK.PY_IRBW.NULL.NULL.pgp
+│
+├─ SFTP Connection
+│  └─ Host: umt.mft2.equifax.com
+│  └─ User: kyriba
+│  └─ Auth: SSH Key (CORP_EBS_Dev_Inbound)
+│
+├─ File Transfer
+│  └─ Upload .pgp file to Kyriba inbox
+│  └─ Status: SFTP Successful ✅
+│
+└─ Archive
+   └─ Move original to: /app/applcsf/EBSFIN01/appl/xxap/data/outbound/processed/
+
+                ↓
+
+KYRIBA LAYER (Destination)
+└─ File Receipt
+   ├─ Receives encrypted .pgp file
+   ├─ Decrypts using Kyriba private key
+   ├─ Validates payment instructions
+   ├─ Processes payments through banks
+   └─ Sends confirmations back
+```
+
+---
+
+## How to Manually Generate This File (Testing)
+
+### **Option 1: Standard Oracle Process (Recommended)**
+
+```sql
+-- Step 1: Check pending invoices
+SELECT vendor_name, 
+       invoice_num, 
+       invoice_amount,
+       invoice_currency_code,
+       payment_status_flag
+FROM ap_invoices_all
+WHERE payment_status_flag = 'N'  -- Not paid
+AND org_id = <your_org_id>;
+
+-- Step 2: Create Payment Batch
+-- Go to: Payables → Payments → Payment Process Requests
+-- Fill in parameters and submit
+
+-- Step 3: Check batch status
+SELECT payment_batch_id,
+       payment_count,
+       payment_amount,
+       payment_status_code
+FROM ap_payment_batches
+WHERE payment_batch_id = 149745361;
+
+-- Step 4: Submit Format Program
+-- Navigate to: View → Requests → Submit a New Request
+-- Select: Format Payment Instructions
+-- Parameters: Batch ID = 149745361
+```
+
+### **Option 2: Direct Concurrent Program Submission**
+
+**Navigation:**
+1. Oracle EBS → View → Requests → Submit a New Request
+2. Select: **Format Payment Instructions**
+3. Parameters:
+   - Calling Application: Payables
+   - Payment Batch: 149745361
+   - Payment Format: IRBW
+   - Payment Document Number From/To
+4. Submit
+
+**Program will:**
+- Query payment data from `AP_PAYMENT_BATCHES`
+- Apply format template `PY_IRBW`
+- Generate file in outbound directory
+
+### **Option 3: PL/SQL Package Call (For Developers)**
+
+```sql
+-- Call the payment formatting package
+BEGIN
+    AP_PAYMENT_FORMATTING_PKG.format_payment_instructions(
+        p_payment_batch_id    => 149745361,
+        p_payment_document_id => NULL,
+        p_payment_format      => 'IRBW',
+        p_org_id              => <your_org_id>,
+        p_debug_flag          => 'Y'
+    );
+    COMMIT;
+END;
+/
+```
+
+---
+
+## File Format Template Configuration
+
+The **PY_IRBW** template defines the file structure. This is configured in:
+
+**Navigation:**
+- Payables → Setup → Payment → Formats
+
+**Key Components:**
+```
+Format Name: IRBW (or PY_IRBW)
+Format Type: Electronic
+Template: XML/Flat file template
+Segments:
+├─ Header
+├─ Payment Details
+│  ├─ Supplier Info
+│  ├─ Bank Info
+│  ├─ Amount
+│  └─ References
+└─ Trailer
+```
+
+---
+
+## Key Tables Involved
+
+```sql
+-- Payment format definition
+SELECT * FROM AP_PAYMENT_FORMATS
+WHERE format_name = 'IRBW';
+
+-- Payment batch header
+SELECT * FROM AP_PAYMENT_BATCHES
+WHERE payment_batch_id = 149745361;
+
+-- Payment documents
+SELECT * FROM AP_PAYMENT_HISTORY_ALL
+WHERE payment_batch_id = 149745361;
+
+-- Formatted payment files
+SELECT * FROM AP_FORMATTED_PAYMENTS
+WHERE payment_batch_id = 149745361;
+```
+
+---
+
+## Troubleshooting: If File Not Generated
+
+### **Check 1: Payment Batch Status**
+```sql
+SELECT payment_batch_id,
+       payment_status_code,  -- Should be 'FORMATTED'
+       payment_count,
+       payment_amount
+FROM ap_payment_batches
+WHERE payment_batch_id = 149745361;
+```
+
+### **Check 2: Format Program Log**
+```
+View → Requests → Find Request
+Look for: Format Payment Instructions
+Check: Log file and Output file
+```
+
+### **Check 3: Directory Permissions**
+```bash
+# On application server
+ls -la /app/applcsf/EBSFIN01/appl/xxap/data/outbound/
+# Should have write permissions for applmgr user
+```
+
+### **Check 4: Payment Format Setup**
+```sql
+-- Verify format exists and is active
+SELECT format_name, 
+       active_flag,
+       format_type
+FROM ap_payment_formats
+WHERE format_name = 'IRBW';
+```
+
+---
+
+## Summary: Who Does What
+
+| **Step** | **Who/What** | **Action** | **Output** |
+|----------|--------------|------------|------------|
+| 1 | AP User | Enters invoices | AP_INVOICES_ALL |
+| 2 | Treasury User | Creates payment batch | AP_PAYMENT_BATCHES |
+| 3 | Oracle Concurrent | Format Payment Instructions | Raw file (.txt or .xml) |
+| 4 | XXAP_KYRIBA_OUT_SFTP | Encrypts file | .pgp file |
+| 5 | XXAP_KYRIBA_OUT_SFTP | SFTP transfer | File in Kyriba inbox |
+| 6 | Kyriba | Decrypts & processes | Bank payments |
+
+**The file is ultimately generated by Oracle EBS Payables module through the standard payment processing cycle, then automatically encrypted and transferred by your custom SFTP program.**
+
+Would you like me to create a detailed runbook for testing this process end-to-end in UAT?
