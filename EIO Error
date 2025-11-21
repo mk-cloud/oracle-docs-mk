@@ -1,4 +1,80 @@
--- Test the procedure in SQL*Plus/Toad
+DECLARE
+  -- Output variables
+  v_retcode      VARCHAR2(10);
+  v_retmessage   VARCHAR2(4000);
+  
+  -- Test with your actual values
+  v_customer_trx_id           NUMBER := 105543;
+  v_document_id               VARCHAR2(100) := 'e8221ad6-d6de-4c26-8881-4f4c786ca5';
+  v_document_status           VARCHAR2(50) := 'APROBADO';
+  v_response_date             VARCHAR2(20) := '2024-12-15';  -- Changed from 2025 to 2024
+  v_result_code               VARCHAR2(10) := '200';
+  v_source_system             VARCHAR2(50) := 'SII';
+  v_tax_agency_doc_obs        VARCHAR2(4000) := '..tax agency obs pending';
+  v_tax_agency_sequence       VARCHAR2(50) := '22331';
+  
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('========================================');
+  DBMS_OUTPUT.PUT_LINE('Testing UPDATE_CAI Procedure');
+  DBMS_OUTPUT.PUT_LINE('========================================');
+  DBMS_OUTPUT.PUT_LINE('Input Parameters:');
+  DBMS_OUTPUT.PUT_LINE('  Customer Trx ID: ' || v_customer_trx_id);
+  DBMS_OUTPUT.PUT_LINE('  Document ID: ' || v_document_id);
+  DBMS_OUTPUT.PUT_LINE('  Document Status: ' || v_document_status);
+  DBMS_OUTPUT.PUT_LINE('  Response Date: ' || v_response_date);
+  DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+  
+  -- Call the procedure
+  UPDATE_CAI(
+    pcustomertrxid            => v_customer_trx_id,
+    pdocumentid               => v_document_id,
+    pdocumentstatus           => v_document_status,
+    presponsedate             => v_response_date,
+    presultcode               => v_result_code,
+    psourcesystem             => v_source_system,
+    ptaxagencydocobservations => v_tax_agency_doc_obs,
+    ptaxagencysequence        => v_tax_agency_sequence,
+    pretcode                  => v_retcode,
+    xretmessage               => v_retmessage
+  );
+  
+  -- Display results
+  DBMS_OUTPUT.PUT_LINE('========================================');
+  DBMS_OUTPUT.PUT_LINE('Results:');
+  DBMS_OUTPUT.PUT_LINE('  Return Code: ' || NVL(v_retcode, 'NULL'));
+  DBMS_OUTPUT.PUT_LINE('  Return Message: ' || NVL(v_retmessage, 'NULL'));
+  DBMS_OUTPUT.PUT_LINE('========================================');
+  
+  -- Interpret results
+  IF v_retcode = '0' OR v_retcode = 'S' THEN
+    DBMS_OUTPUT.PUT_LINE('✓ SUCCESS: Procedure executed successfully');
+    COMMIT;
+  ELSIF v_retcode = '1' OR v_retcode = 'W' THEN
+    DBMS_OUTPUT.PUT_LINE('⚠ WARNING: ' || v_retmessage);
+    ROLLBACK;
+  ELSIF v_retcode = '2' OR v_retcode = 'E' THEN
+    DBMS_OUTPUT.PUT_LINE('✗ ERROR: ' || v_retmessage);
+    ROLLBACK;
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('? UNKNOWN STATUS: ' || v_retcode);
+    ROLLBACK;
+  END IF;
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('========================================');
+    DBMS_OUTPUT.PUT_LINE('EXCEPTION CAUGHT:');
+    DBMS_OUTPUT.PUT_LINE('  Error Code: ' || SQLCODE);
+    DBMS_OUTPUT.PUT_LINE('  Error Message: ' || SQLERRM);
+    DBMS_OUTPUT.PUT_LINE('  Backtrace: ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    DBMS_OUTPUT.PUT_LINE('========================================');
+    ROLLBACK;
+END;
+/
+
+
+
+------------------- Test the procedure in SQL*Plus/Toad
 DECLARE
   l_return_status VARCHAR2(1);
   l_msg_data      VARCHAR2(4000);
