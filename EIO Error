@@ -1,0 +1,54 @@
+-- Test the procedure in SQL*Plus/Toad
+DECLARE
+  l_return_status VARCHAR2(1);
+  l_msg_data      VARCHAR2(4000);
+BEGIN
+  XXAR_EIO_SERVICES_PKG.UPDATE_CAI(
+    p_customer_trx_id     => 105543,
+    p_document_id         => 'e8221ad6-d6de-4c26-8881-4f4c786ca5',
+    p_response_date       => '2025-12-15',
+    p_tax_agency_seq      => '22331',
+    p_document_status     => 'APROBADO',
+    p_observations        => '..tax agency obs pending',
+    p_source_system       => 'SII',
+    p_result_code         => '200',
+    x_return_status       => l_return_status,
+    x_msg_data           => l_msg_data
+  );
+  
+  DBMS_OUTPUT.PUT_LINE('Status: ' || l_return_status);
+  DBMS_OUTPUT.PUT_LINE('Message: ' || l_msg_data);
+  
+  IF l_return_status = 'E' THEN
+    ROLLBACK;
+  ELSE
+    COMMIT;
+  END IF;
+END;
+/
+-------------------
+
+
+-- Check if the web service is properly registered
+SELECT * 
+FROM fnd_svc_components
+WHERE component_name = 'XXAR_EIO_SERVICES_WS'
+  AND component_status = 'DEPLOYED';
+
+-- Check ISG configuration
+SELECT * 
+FROM fnd_svc_comp_param_vals
+WHERE component_id IN (
+  SELECT component_id 
+  FROM fnd_svc_components
+  WHERE component_name = 'XXAR_EIO_SERVICES_WS'
+);
+
+
+----------------
+
+-- Check grants on your custom package
+SELECT grantee, privilege, owner, table_name
+FROM dba_tab_privs
+WHERE table_name = 'XXAR_EIO_SERVICES_PKG'  -- Your package name
+  AND grantee = 'YOUR_WS_USER';  -- Web service schema user
