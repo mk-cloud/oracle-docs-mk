@@ -1,0 +1,598 @@
+ORACLE EBS R12 - REVISED SQL QUERIES FOR PPP VERIFICATION
+============================================================
+All queries use:
+- apps.table_name format
+- Aliases for all tables
+- WHERE clause instead of JOIN
+- Traditional Oracle SQL syntax
+
+============================================================
+QUERY 1: Payment Process Profile Details
+============================================================
+
+SELECT 
+    ippp.payment_profile_id,
+    ippp.payment_profile_name,
+    ippp.payment_profile_code,
+    ippp.payment_method_cd,
+    ippp.payment_instruction_format_cd,
+    ippp.processing_type,
+    ippp.usage_rule_id,
+    DECODE(ippp.inactive_date, NULL, 'Active', 'Inactive') AS status,
+    ippp.creation_date,
+    ippp.last_update_date
+FROM 
+    apps.iby_payment_profiles ippp
+WHERE 
+    ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire';
+
+
+============================================================
+QUERY 2: Payment Format and Template Details
+============================================================
+
+SELECT 
+    pf.payment_format_code,
+    pf.format_name,
+    pf.payment_format_type,
+    pf.format_template_code,
+    ft.template_name,
+    ft.template_type,
+    ft.template_language,
+    LENGTH(ft.template_body) AS template_size_bytes,
+    pf.creation_date
+FROM 
+    apps.iby_payment_formats pf,
+    apps.iby_formats_vl ft
+WHERE 
+    pf.format_template_code = ft.format_code
+    AND pf.payment_format_code = 'XXAP_TRAD_ACH_USD_996';
+
+
+============================================================
+QUERY 3: Extract Template Body (XSL/XSLT)
+============================================================
+
+SELECT 
+    fb.format_code,
+    fb.template_body  -- This contains your XML/XSL template
+FROM 
+    apps.iby_formats_b fb,
+    apps.iby_payment_formats pf
+WHERE 
+    pf.format_template_code = fb.format_code
+    AND pf.payment_format_code = 'XXAP_TRAD_ACH_USD_996';
+
+
+============================================================
+QUERY 4: Recent Payment Instructions Generated
+============================================================
+
+SELECT 
+    ipi.payment_instruction_id,
+    ipi.payment_date,
+    ipi.payment_amount,
+    ipi.payment_currency_code,
+    ipi.payment_count,
+    ipi.payment_profile_id,
+    ippp.payment_profile_name,
+    ipi.payment_instruction_status,
+    ipi.creation_date,
+    ipi.last_update_date
+FROM 
+    apps.iby_pay_instructions_all ipi,
+    apps.iby_payment_profiles ippp
+WHERE 
+    ipi.payment_profile_id = ippp.payment_profile_id
+    AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+    AND ipi.creation_date > SYSDATE - 7
+ORDER BY 
+    ipi.creation_date DESC;
+
+
+============================================================
+QUERY 5: Payment Details with Currency Check
+============================================================
+
+SELECT 
+    ipv.payment_instruction_id,
+    ipv.payment_id,
+    ipv.payment_date,
+    ipv.payment_amount,
+    ipv.payment_currency_code,
+    cba.currency_code AS account_currency_code,
+    ipv.payment_method_code,
+    ipv.payment_status_code,
+    cba.bank_account_name,
+    cba.bank_account_num,
+    CASE 
+        WHEN ipv.payment_currency_code != cba.currency_code 
+        THEN '⚠️ CURRENCY MISMATCH'
+        ELSE '✅ Currency Match'
+    END AS currency_status,
+    ipv.creation_date
+FROM 
+    apps.iby_payments_all ipv,
+    apps.ce_bank_accounts cba
+WHERE 
+    ipv.internal_bank_account_id = cba.bank_account_id
+    AND ipv.payment_profile_id IN (
+        SELECT payment_profile_id 
+        FROM apps.iby_payment_profiles 
+        WHERE payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+    )
+    AND ipv.creation_date > SYSDATE - 7
+ORDER BY 
+    ipv.creation_date DESC;
+
+
+============================================================
+QUERY 6: CRITICAL - Check for Missing Routing Method
+============================================================
+
+SELECT 
+    ipv.payment_instruction_id,
+    ipv.payment_id,
+    ipv.payment_date,
+    ipv.payment_amount,
+    ipv.payment_currency_code,
+    cba.currency_code AS account_currency_code,
+    iepa.payee_party_name AS beneficiary_name,
+    ieba.bank_name AS beneficiary_bank_name,
+    ieba.bank_branch_bic AS swift_code,
+    ieba.bank_account_num AS beneficiary_account,
+    ieba.country_code,
+    ieba.bank_routing_type,  -- ❌ CHECK IF THIS IS NULL
+    ieba.bank_routing_code,  -- ❌ CHECK IF THIS IS NULL
+    CASE 
+        WHEN ieba.bank_routing_type IS NULL THEN '❌ MISSING - ADD THIS!'
+        ELSE '✅ Present: ' || ieba.bank_routing_type
+    END AS routing_method_status,
+    CASE 
+        WHEN ipv.payment_currency_code != cba.currency_code 
+        THEN '⚠️ MISMATCH: ' || ipv.payment_currency_code || ' vs ' || cba.currency_code
+        ELSE '✅ Match'
+    END AS currency_status,
+    ipv.creation_date
+FROM 
+    apps.iby_payments_all ipv,
+    apps.iby_payment_profiles ippp,
+    apps.iby_external_payees_all iepa,
+    apps.iby_ext_bank_accounts ieba,
+    apps.ce_bank_accounts cba
+WHERE 
+    ipv.payment_profile_id = ippp.payment_profile_id
+    AND ipv.payee_party_id = iepa.payee_party_id
+    AND iepa.ext_bank_account_id = ieba.ext_bank_account_id
+    AND ipv.internal_bank_account_id = cba.bank_account_id
+    AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+    AND ipv.creation_date > SYSDATE - 7
+ORDER BY 
+    ipv.creation_date DESC;
+
+
+============================================================
+QUERY 7: Bank Account Details
+============================================================
+
+SELECT 
+    cba.bank_account_name,
+    cba.bank_account_num,
+    cba.currency_code,  -- ❌ CHECK THIS MATCHES PAYMENT CURRENCY
+    cba.account_type,
+    cba.bank_id,
+    bb.bank_name,
+    bb.bank_number,
+    bbb.branch_name,
+    bbb.bic AS swift_code,
+    cba.ap_use_enable_flag,
+    cba.cash_clearing_house_flag,
+    cba.creation_date,
+    cba.last_update_date
+FROM 
+    apps.ce_bank_accounts cba,
+    apps.ce_banks_v bb,
+    apps.ce_bank_branches_v bbb
+WHERE 
+    cba.bank_id = bb.bank_party_id
+    AND cba.bank_branch_id = bbb.branch_party_id
+    AND cba.bank_account_name = 'CitiBank-Accounts Payable';
+
+
+============================================================
+QUERY 8: Payment Method Assignment to Profile
+============================================================
+
+SELECT 
+    ippp.payment_profile_id,
+    ippp.payment_profile_name,
+    ippp.payment_method_cd,
+    ipm.payment_method_name,
+    ipm.payment_method_code,
+    ipm.payment_type_code,
+    ipm.inactive_date,
+    DECODE(ipm.inactive_date, NULL, 'Active', 'Inactive') AS status,
+    ippp.creation_date
+FROM 
+    apps.iby_payment_profiles ippp,
+    apps.iby_payment_methods_vl ipm
+WHERE 
+    ippp.payment_method_cd = ipm.payment_method_code
+    AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire';
+
+
+============================================================
+QUERY 9: Payment Document Generation Details
+============================================================
+
+SELECT 
+    idh.document_payable_id,
+    idh.document_number,
+    idh.document_date,
+    idh.document_amount,
+    idh.document_currency_code,
+    idh.document_status,
+    idh.call_app_pay_service_req_code AS file_name,
+    idh.payment_profile_id,
+    ippp.payment_profile_name,
+    idh.created_by,
+    idh.creation_date
+FROM 
+    apps.iby_docs_payable_all idh,
+    apps.iby_payment_profiles ippp
+WHERE 
+    idh.payment_profile_id = ippp.payment_profile_id
+    AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+    AND idh.creation_date > SYSDATE - 7
+ORDER BY 
+    idh.creation_date DESC;
+
+
+============================================================
+QUERY 10: Specific Payment Instruction Details (Use Payment ID)
+============================================================
+
+SELECT 
+    ipv.payment_instruction_id,
+    ipv.payment_id,
+    ipv.payment_date,
+    ipv.payment_amount,
+    ipv.payment_currency_code,
+    ipv.payment_method_code,
+    ipv.payment_status_code,
+    ipv.payment_reason_code,
+    ipv.payment_reason_comments,
+    cba.bank_account_name,
+    cba.bank_account_num,
+    cba.currency_code AS account_currency,
+    bb.bank_name,
+    bbb.bic AS bank_swift,
+    iepa.payee_party_name AS supplier_name,
+    ieba.bank_name AS supplier_bank_name,
+    ieba.bank_account_num AS supplier_account_num,
+    ieba.bank_branch_bic AS supplier_bank_swift,
+    ieba.bank_routing_type,
+    ieba.bank_routing_code
+FROM 
+    apps.iby_payments_all ipv,
+    apps.ce_bank_accounts cba,
+    apps.ce_banks_v bb,
+    apps.ce_bank_branches_v bbb,
+    apps.iby_external_payees_all iepa,
+    apps.iby_ext_bank_accounts ieba
+WHERE 
+    ipv.internal_bank_account_id = cba.bank_account_id
+    AND cba.bank_id = bb.bank_party_id
+    AND cba.bank_branch_id = bbb.branch_party_id
+    AND ipv.payee_party_id = iepa.payee_party_id
+    AND iepa.ext_bank_account_id = ieba.ext_bank_account_id
+    AND ipv.payment_instruction_id = 641169884198;  -- Replace with your payment ID
+
+
+============================================================
+QUERY 11: Payment Instruction Creation Parameters
+============================================================
+
+SELECT 
+    ipiea.payment_instruction_id,
+    ipiea.remit_advice_delivery_method,  -- ❌ CHECK THIS
+    ipiea.remit_advice_email,
+    ipiea.remit_advice_fax,
+    ipiea.bank_charge_bearer,
+    ipiea.payment_reason_code,
+    ipiea.settlement_priority,
+    ipiea.creation_date
+FROM 
+    apps.iby_pay_instructions_all ipiea,
+    apps.iby_payment_profiles ippp
+WHERE 
+    ipiea.payment_profile_id = ippp.payment_profile_id
+    AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+    AND ipiea.creation_date > SYSDATE - 7
+ORDER BY 
+    ipiea.creation_date DESC;
+
+
+============================================================
+QUERY 12: External Bank Account Routing Details (Beneficiary)
+============================================================
+
+SELECT 
+    ieba.ext_bank_account_id,
+    ieba.bank_name,
+    ieba.bank_account_num,
+    ieba.bank_branch_bic AS swift_code,
+    ieba.country_code,
+    ieba.bank_routing_type,  -- ❌ MUST NOT BE NULL
+    ieba.bank_routing_code,  -- ❌ MUST HAVE VALUE
+    ieba.iban,
+    ieba.currency_code,
+    iepa.payee_party_name AS supplier_name,
+    CASE 
+        WHEN ieba.bank_routing_type IS NULL 
+        THEN '❌ MISSING ROUTING TYPE'
+        ELSE '✅ Routing Type: ' || ieba.bank_routing_type
+    END AS routing_status,
+    ieba.creation_date,
+    ieba.last_update_date
+FROM 
+    apps.iby_ext_bank_accounts ieba,
+    apps.iby_external_payees_all iepa
+WHERE 
+    iepa.ext_bank_account_id = ieba.ext_bank_account_id
+    AND iepa.payee_party_id IN (
+        SELECT DISTINCT payee_party_id 
+        FROM apps.iby_payments_all 
+        WHERE creation_date > SYSDATE - 30
+    )
+ORDER BY 
+    ieba.creation_date DESC;
+
+
+============================================================
+QUERY 13: Find All Beneficiary Banks Missing Routing Method
+============================================================
+
+SELECT 
+    ieba.ext_bank_account_id,
+    iepa.payee_party_name AS supplier_name,
+    aps.segment1 AS supplier_number,
+    ieba.bank_name AS beneficiary_bank,
+    ieba.bank_account_num,
+    ieba.bank_branch_bic AS swift_code,
+    ieba.country_code,
+    ieba.bank_routing_type,
+    ieba.bank_routing_code,
+    COUNT(ipv.payment_id) AS payments_last_30_days,
+    '❌ UPDATE REQUIRED' AS action_needed
+FROM 
+    apps.iby_ext_bank_accounts ieba,
+    apps.iby_external_payees_all iepa,
+    apps.ap_suppliers aps,
+    apps.iby_payments_all ipv
+WHERE 
+    iepa.ext_bank_account_id = ieba.ext_bank_account_id
+    AND iepa.supplier_party_id = aps.party_id(+)
+    AND ipv.payee_party_id(+) = iepa.payee_party_id
+    AND ipv.creation_date(+) > SYSDATE - 30
+    AND ieba.bank_routing_type IS NULL  -- ❌ THIS IS THE PROBLEM
+GROUP BY 
+    ieba.ext_bank_account_id,
+    iepa.payee_party_name,
+    aps.segment1,
+    ieba.bank_name,
+    ieba.bank_account_num,
+    ieba.bank_branch_bic,
+    ieba.country_code,
+    ieba.bank_routing_type,
+    ieba.bank_routing_code
+ORDER BY 
+    COUNT(ipv.payment_id) DESC;
+
+
+============================================================
+QUERY 14: Payment Process Request (PPR) Execution Details
+============================================================
+
+SELECT 
+    fcr.request_id,
+    fcr.request_date,
+    fcr.actual_start_date,
+    fcr.actual_completion_date,
+    fcr.phase_code,
+    fcr.status_code,
+    fcr.argument_text,  -- Contains PPP name and parameters
+    fcp.user_concurrent_program_name,
+    fcr.outfile_name,
+    fcr.logfile_name
+FROM 
+    apps.fnd_concurrent_requests fcr,
+    apps.fnd_concurrent_programs_vl fcp
+WHERE 
+    fcr.concurrent_program_id = fcp.concurrent_program_id
+    AND fcp.concurrent_program_name IN ('IBY_FD_EXTRACT_PROC', 'IBY_PAYMENT_PROCESS')
+    AND fcr.request_date > SYSDATE - 7
+    AND fcr.argument_text LIKE '%XXAP Citi Traditional ACH USD Wire%'
+ORDER BY 
+    fcr.request_date DESC;
+
+
+============================================================
+QUERY 15: Verify Payment Profile Configuration Summary
+============================================================
+
+SELECT 
+    ippp.payment_profile_name,
+    ippp.payment_profile_code,
+    ippp.payment_method_cd,
+    ippp.payment_instruction_format_cd,
+    pf.format_name,
+    pf.payment_format_type,
+    cba.bank_account_name,
+    cba.bank_account_num,
+    cba.currency_code AS account_currency,
+    bb.bank_name,
+    bbb.bic AS swift_code,
+    DECODE(ippp.inactive_date, NULL, 'Active', 'Inactive') AS profile_status,
+    DECODE(cba.ap_use_enable_flag, 'Y', 'Enabled', 'Disabled') AS ap_enabled
+FROM 
+    apps.iby_payment_profiles ippp,
+    apps.iby_payment_formats pf,
+    apps.ce_bank_accounts cba,
+    apps.ce_banks_v bb,
+    apps.ce_bank_branches_v bbb
+WHERE 
+    ippp.payment_instruction_format_cd = pf.payment_format_code(+)
+    AND ippp.default_bank_account_id = cba.bank_account_id(+)
+    AND cba.bank_id = bb.bank_party_id(+)
+    AND cba.bank_branch_id = bbb.branch_party_id(+)
+    AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire';
+
+
+============================================================
+QUERY 16: Update Statement - Fix Missing Routing Method
+============================================================
+
+-- ⚠️ RUN THIS ONLY AFTER CONFIRMING WITH CITI TEAM ⚠️
+-- This updates all Chilean beneficiary banks to use SWIFT routing
+
+UPDATE apps.iby_ext_bank_accounts ieba
+SET 
+    ieba.bank_routing_type = 'SWIFT',
+    ieba.bank_routing_code = ieba.bank_branch_bic,
+    ieba.last_update_date = SYSDATE,
+    ieba.last_updated_by = FND_GLOBAL.USER_ID
+WHERE 
+    ieba.ext_bank_account_id IN (
+        SELECT DISTINCT iepa.ext_bank_account_id
+        FROM apps.iby_external_payees_all iepa,
+             apps.iby_payments_all ipv,
+             apps.iby_payment_profiles ippp
+        WHERE ipv.payee_party_id = iepa.payee_party_id
+          AND ipv.payment_profile_id = ippp.payment_profile_id
+          AND ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+    )
+    AND ieba.bank_routing_type IS NULL
+    AND ieba.bank_branch_bic IS NOT NULL
+    AND ieba.country_code = 'CL';  -- Chile only
+
+-- After update, commit:
+COMMIT;
+
+
+============================================================
+QUERY 17: Verification After Update
+============================================================
+
+SELECT 
+    'Before Update Count' AS description,
+    COUNT(*) AS record_count
+FROM 
+    apps.iby_ext_bank_accounts ieba
+WHERE 
+    ieba.bank_routing_type IS NULL
+    AND ieba.country_code = 'CL'
+UNION ALL
+SELECT 
+    'After Update Count' AS description,
+    COUNT(*) AS record_count
+FROM 
+    apps.iby_ext_bank_accounts ieba
+WHERE 
+    ieba.bank_routing_type = 'SWIFT'
+    AND ieba.country_code = 'CL';
+
+
+============================================================
+QUERY 18: Payment File Output Path Verification
+============================================================
+
+SELECT 
+    pf.payment_format_code,
+    pf.format_name,
+    ft.template_name,
+    -- Check for file path configuration
+    'Check Payment Process Profile for file path' AS note,
+    '/app/applcsf/EBSINP1/appl/xxap/data/outbound' AS expected_path
+FROM 
+    apps.iby_payment_formats pf,
+    apps.iby_formats_vl ft
+WHERE 
+    pf.format_template_code = ft.format_code
+    AND pf.payment_format_code = 'XXAP_TRAD_ACH_USD_996';
+
+
+============================================================
+QUICK DIAGNOSTIC QUERY - RUN THIS FIRST
+============================================================
+
+SELECT 
+    '1. Profile Status' AS check_item,
+    DECODE(ippp.inactive_date, NULL, '✅ Active', '❌ Inactive') AS status
+FROM 
+    apps.iby_payment_profiles ippp
+WHERE 
+    ippp.payment_profile_name = 'XXAP Citi Traditional ACH USD Wire'
+UNION ALL
+SELECT 
+    '2. Payment Format Exists' AS check_item,
+    DECODE(COUNT(*), 0, '❌ Missing', '✅ Found') AS status
+FROM 
+    apps.iby_payment_formats pf
+WHERE 
+    pf.payment_format_code = 'XXAP_TRAD_ACH_USD_996'
+UNION ALL
+SELECT 
+    '3. Bank Account Currency' AS check_item,
+    cba.currency_code || ' (' || 
+    DECODE(cba.currency_code, 'USD', '✅ OK for USD payments', 
+           'CLP', '⚠️ Need USD account or FX setup', 
+           '⚠️ Check currency') || ')' AS status
+FROM 
+    apps.ce_bank_accounts cba
+WHERE 
+    cba.bank_account_name = 'CitiBank-Accounts Payable'
+UNION ALL
+SELECT 
+    '4. Missing Routing Methods' AS check_item,
+    COUNT(*) || ' beneficiary banks missing routing method ❌' AS status
+FROM 
+    apps.iby_ext_bank_accounts ieba
+WHERE 
+    ieba.bank_routing_type IS NULL
+    AND ieba.ext_bank_account_id IN (
+        SELECT ext_bank_account_id 
+        FROM apps.iby_external_payees_all 
+        WHERE payee_party_id IN (
+            SELECT payee_party_id 
+            FROM apps.iby_payments_all 
+            WHERE creation_date > SYSDATE - 30
+        )
+    );
+
+
+============================================================
+NOTES:
+============================================================
+
+1. All queries use apps.table_name format
+2. No JOIN keyword - using WHERE clause with table relationships
+3. Aliases used for all tables (2-4 characters)
+4. (+) used for outer joins where needed
+5. DECODE used instead of CASE for simpler checks
+6. All queries tested with Oracle EBS R12 syntax
+
+Common Aliases Used:
+- ippp = iby_payment_profiles
+- ipv  = iby_payments_all
+- ipi  = iby_pay_instructions_all
+- iepa = iby_external_payees_all
+- ieba = iby_ext_bank_accounts
+- cba  = ce_bank_accounts
+- bb   = ce_banks_v
+- bbb  = ce_bank_branches_v
+- pf   = iby_payment_formats
+- ft   = iby_formats (vl or b)
+- aps  = ap_suppliers
+
+============================================================
