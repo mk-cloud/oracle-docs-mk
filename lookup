@@ -28,3 +28,14 @@ END xxar_get_sii_country_code;
 
 
 SELECT xxar_get_sii_country_code('SN') AS country_code FROM DUAL;
+
+
+FNDLOAD apps/apps_pwd 0 Y DOWNLOAD $FND_TOP/patch/115/import/aflvmlu.lct \
+XXAR_SII_COUNNTRY_CODE.ldt \
+FND_LOOKUP_TYPE \
+APPLICATION_SHORT_NAME="XXAR" \
+LOOKUP_TYPE="XXAR_SII_COUNNTRY_CODE"
+
+
+FNDLOAD apps/apps_pwd 0 Y UPLOAD $FND_TOP/patch/115/import/aflvmlu.lct \
+XXAR_SII_COUNNTRY_CODE.ldt
