@@ -1,20 +1,13 @@
 DECLARE
-    -- HTTP Variables
     l_http_request   UTL_HTTP.req;
     l_http_response  UTL_HTTP.resp;
     l_response_text  CLOB;
     l_buffer         VARCHAR2(32767);
     
-    -- URL and Credentials
     l_url            VARCHAR2(500)  := 'https://ebscorpdev09.gfs.aws.efx:443/webservices/rest/XXAR_EIO_SERVICES_WS/UPDATE_CAI/';
     l_username       VARCHAR2(100)  := 'AR_GLOBAL';
     l_password       VARCHAR2(100)  := 'CL6XTHHWey+Ki1MK_3h';
     
-    -- Wallet Path (GET THIS FROM YOUR DBA)
-    l_wallet_path    VARCHAR2(500)  := 'file:/u01/app/oracle/admin/DEV09/wallet';  -- Example path
-    l_wallet_pwd     VARCHAR2(100)  := NULL;  -- Often NULL for auto-login wallets
-    
-    -- Input Payload
     l_payload        CLOB := '{
         "InputParameters": {
             "PCUSTOMERTRXID": 245575,
@@ -28,14 +21,11 @@ DECLARE
         }
     }';
     
-    -- Timing Variables
     l_start_time     TIMESTAMP;
     l_end_time       TIMESTAMP;
     l_request_start  TIMESTAMP;
-    l_request_end    TIMESTAMP;
     l_response_start TIMESTAMP;
     l_response_end   TIMESTAMP;
-    l_elapsed_ms     NUMBER;
     
 BEGIN
     l_start_time := SYSTIMESTAMP;
@@ -50,73 +40,71 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE(l_payload);
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
     
-    -- *** SET WALLET FOR HTTPS - THIS IS REQUIRED ***
-    UTL_HTTP.SET_WALLET(l_wallet_path, l_wallet_pwd);
+    -- TRY COMMON EBS WALLET PATHS
+    BEGIN
+        -- Try path 1: Common EBS R12 wallet location
+        UTL_HTTP.SET_WALLET('file:/u01/app/oracle/product/12.1.0/owm/wallets/oracle', NULL);
+        DBMS_OUTPUT.PUT_LINE('Wallet Path 1 worked');
+    EXCEPTION
+        WHEN OTHERS THEN
+            BEGIN
+                -- Try path 2
+                UTL_HTTP.SET_WALLET('file:/u01/app/oracle/admin/wallet', NULL);
+                DBMS_OUTPUT.PUT_LINE('Wallet Path 2 worked');
+            EXCEPTION
+                WHEN OTHERS THEN
+                    BEGIN
+                        -- Try path 3: Apps wallet
+                        UTL_HTTP.SET_WALLET('file:/u01/install/APPS/fs1/inst/apps/DEV09_ebscorpdev09/certs/Apache', NULL);
+                        DBMS_OUTPUT.PUT_LINE('Wallet Path 3 worked');
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            DBMS_OUTPUT.PUT_LINE('All wallet paths failed: ' || SQLERRM);
+                            RAISE;
+                    END;
+            END;
+    END;
     
     UTL_HTTP.SET_TRANSFER_TIMEOUT(60);
     
-    -- Request Phase Timing
     l_request_start := SYSTIMESTAMP;
     DBMS_OUTPUT.PUT_LINE('Request Start: ' || TO_CHAR(l_request_start, 'HH24:MI:SS.FF3'));
     
-    l_http_request := UTL_HTTP.BEGIN_REQUEST(
-        url    => l_url,
-        method => 'POST'
-    );
+    l_http_request := UTL_HTTP.BEGIN_REQUEST(l_url, 'POST');
     
     UTL_HTTP.SET_HEADER(l_http_request, 'Content-Type', 'application/json');
     UTL_HTTP.SET_HEADER(l_http_request, 'Content-Length', LENGTH(l_payload));
-    
-    UTL_HTTP.SET_AUTHENTICATION(
-        r        => l_http_request,
-        username => l_username,
-        password => l_password,
-        scheme   => 'Basic'
-    );
-    
+    UTL_HTTP.SET_AUTHENTICATION(l_http_request, l_username, l_password, 'Basic');
     UTL_HTTP.WRITE_TEXT(l_http_request, l_payload);
-    l_request_end := SYSTIMESTAMP;
-    DBMS_OUTPUT.PUT_LINE('Request End: ' || TO_CHAR(l_request_end, 'HH24:MI:SS.FF3'));
     
-    -- Response Phase Timing
     l_response_start := SYSTIMESTAMP;
     DBMS_OUTPUT.PUT_LINE('Response Start: ' || TO_CHAR(l_response_start, 'HH24:MI:SS.FF3'));
     
     l_http_response := UTL_HTTP.GET_RESPONSE(l_http_request);
     
     DBMS_LOB.CREATETEMPORARY(l_response_text, TRUE);
-    
     BEGIN
         LOOP
             UTL_HTTP.READ_TEXT(l_http_response, l_buffer, 32767);
             DBMS_LOB.WRITEAPPEND(l_response_text, LENGTH(l_buffer), l_buffer);
         END LOOP;
     EXCEPTION
-        WHEN UTL_HTTP.END_OF_BODY THEN
-            NULL;
+        WHEN UTL_HTTP.END_OF_BODY THEN NULL;
     END;
     
     l_response_end := SYSTIMESTAMP;
-    DBMS_OUTPUT.PUT_LINE('Response End: ' || TO_CHAR(l_response_end, 'HH24:MI:SS.FF3'));
-    
     l_end_time := SYSTIMESTAMP;
     
-    -- Output Results
+    DBMS_OUTPUT.PUT_LINE('Response End: ' || TO_CHAR(l_response_end, 'HH24:MI:SS.FF3'));
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
-    DBMS_OUTPUT.PUT_LINE('RESPONSE:');
-    DBMS_OUTPUT.PUT_LINE('HTTP Status Code: ' || l_http_response.status_code);
-    DBMS_OUTPUT.PUT_LINE('HTTP Reason: ' || l_http_response.reason_phrase);
+    DBMS_OUTPUT.PUT_LINE('HTTP Status: ' || l_http_response.status_code || ' - ' || l_http_response.reason_phrase);
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
     DBMS_OUTPUT.PUT_LINE('RESPONSE PAYLOAD:');
     DBMS_OUTPUT.PUT_LINE(DBMS_LOB.SUBSTR(l_response_text, 4000, 1));
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
-    DBMS_OUTPUT.PUT_LINE('TIMING SUMMARY:');
-    DBMS_OUTPUT.PUT_LINE('  Request Time : ' || 
-        ROUND(EXTRACT(SECOND FROM (l_request_end - l_request_start)) * 1000, 2) || ' ms');
-    DBMS_OUTPUT.PUT_LINE('  Response Time: ' || 
-        ROUND(EXTRACT(SECOND FROM (l_response_end - l_response_start)) * 1000, 2) || ' ms');
-    DBMS_OUTPUT.PUT_LINE('  Total Time   : ' || 
-        ROUND(EXTRACT(SECOND FROM (l_end_time - l_start_time)) * 1000, 2) || ' ms');
+    DBMS_OUTPUT.PUT_LINE('TIMING:');
+    DBMS_OUTPUT.PUT_LINE('  Response Time: ' || ROUND(EXTRACT(SECOND FROM (l_response_end - l_response_start)) * 1000, 2) || ' ms');
+    DBMS_OUTPUT.PUT_LINE('  Total Time   : ' || ROUND(EXTRACT(SECOND FROM (l_end_time - l_start_time)) * 1000, 2) || ' ms');
     DBMS_OUTPUT.PUT_LINE('===========================================');
     
     UTL_HTTP.END_RESPONSE(l_http_response);
@@ -124,10 +112,7 @@ BEGIN
     
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
         DBMS_OUTPUT.PUT_LINE('ERROR: ' || SQLERRM);
-        DBMS_OUTPUT.PUT_LINE('Error Code: ' || SQLCODE);
-        DBMS_OUTPUT.PUT_LINE('Detailed Error: ' || UTL_HTTP.GET_DETAILED_SQLERRM);
-        DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('Detailed: ' || UTL_HTTP.GET_DETAILED_SQLERRM);
 END;
 /
