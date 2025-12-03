@@ -1,3 +1,19 @@
+-- Run this to see the actual underlying error
+DECLARE
+    l_http_request  UTL_HTTP.req;
+BEGIN
+    UTL_HTTP.SET_TRANSFER_TIMEOUT(30);
+    l_http_request := UTL_HTTP.BEGIN_REQUEST('https://ebscorpdev09.gfs.aws.efx:443/webservices/rest/XXAR_EIO_SERVICES_WS/UPDATE_CAI/');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('Detailed: ' || UTL_HTTP.GET_DETAILED_SQLERRM);
+END;
+/
+
+
+
+
 DECLARE
     l_http_request   UTL_HTTP.req;
     l_http_response  UTL_HTTP.resp;
