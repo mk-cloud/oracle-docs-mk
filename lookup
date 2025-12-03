@@ -1,0 +1,30 @@
+DECLARE
+   ln_rowid VARCHAR2(100);
+BEGIN
+   fnd_lookup_types_pkg.insert_row
+   (
+      x_rowid               => ln_rowid,
+      x_lookup_type         => 'XXAR_SII_COUNNTRY_CODE',
+      x_security_group_id   => 0,
+      x_view_application_id => 20007,
+      x_application_id      => 20007,
+      x_customization_level => 'U',
+      x_meaning             => 'XXAR_SII_COUNNTRY_CODE',
+      x_description         => 'XXAR_SII_COUNNTRY_CODE',
+      x_creation_date       => SYSDATE,
+      x_created_by          => fnd_global.user_id,
+      x_last_update_date    => SYSDATE,
+      x_last_updated_by     => fnd_global.user_id,
+      x_last_update_login   => fnd_global.login_id
+   );
+   
+   COMMIT;
+   
+   DBMS_OUTPUT.PUT_LINE('Lookup Type created successfully. ROWID: ' || ln_rowid);
+   
+EXCEPTION
+   WHEN OTHERS THEN
+      ROLLBACK;
+      DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
