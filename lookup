@@ -10,13 +10,17 @@ DECLARE
     l_username       VARCHAR2(100)  := 'AR_GLOBAL';
     l_password       VARCHAR2(100)  := 'CL6XTHHWey+Ki1MK_3h';
     
+    -- Wallet Path (GET THIS FROM YOUR DBA)
+    l_wallet_path    VARCHAR2(500)  := 'file:/u01/app/oracle/admin/DEV09/wallet';  -- Example path
+    l_wallet_pwd     VARCHAR2(100)  := NULL;  -- Often NULL for auto-login wallets
+    
     -- Input Payload
     l_payload        CLOB := '{
         "InputParameters": {
-            "PCUSTOMERTRXID": 31683111,
+            "PCUSTOMERTRXID": 245575,
             "PDOCUMENTID": "f91c1955-02c3-436c-a1ab-176d2aeb171f",
             "PRESPONSEDATE": "2025-10-31",
-            "PTAXAGENCYSEQUENCE": "96821",
+            "PTAXAGENCYSEQUENCE": "968211",
             "PDOCUMENTSTATUS": "APROBADO_CON_REPARO",
             "PTAXAGENCYDOCOBSERVATIONS": "..tax agency obs pending",
             "PSOURCESYSTEM": "SII",
@@ -27,10 +31,13 @@ DECLARE
     -- Timing Variables
     l_start_time     TIMESTAMP;
     l_end_time       TIMESTAMP;
+    l_request_start  TIMESTAMP;
+    l_request_end    TIMESTAMP;
+    l_response_start TIMESTAMP;
+    l_response_end   TIMESTAMP;
     l_elapsed_ms     NUMBER;
     
 BEGIN
-    -- Record Start Time
     l_start_time := SYSTIMESTAMP;
     
     DBMS_OUTPUT.PUT_LINE('===========================================');
@@ -43,23 +50,23 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE(l_payload);
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
     
-    -- Set Wallet for HTTPS (if required)
-    -- UTL_HTTP.SET_WALLET('file:/path/to/wallet', 'wallet_password');
+    -- *** SET WALLET FOR HTTPS - THIS IS REQUIRED ***
+    UTL_HTTP.SET_WALLET(l_wallet_path, l_wallet_pwd);
     
-    -- Set Transfer Timeout
     UTL_HTTP.SET_TRANSFER_TIMEOUT(60);
     
-    -- Create HTTP Request
+    -- Request Phase Timing
+    l_request_start := SYSTIMESTAMP;
+    DBMS_OUTPUT.PUT_LINE('Request Start: ' || TO_CHAR(l_request_start, 'HH24:MI:SS.FF3'));
+    
     l_http_request := UTL_HTTP.BEGIN_REQUEST(
         url    => l_url,
         method => 'POST'
     );
     
-    -- Set Headers
     UTL_HTTP.SET_HEADER(l_http_request, 'Content-Type', 'application/json');
     UTL_HTTP.SET_HEADER(l_http_request, 'Content-Length', LENGTH(l_payload));
     
-    -- Set Basic Authentication
     UTL_HTTP.SET_AUTHENTICATION(
         r        => l_http_request,
         username => l_username,
@@ -67,13 +74,16 @@ BEGIN
         scheme   => 'Basic'
     );
     
-    -- Write Request Body
     UTL_HTTP.WRITE_TEXT(l_http_request, l_payload);
+    l_request_end := SYSTIMESTAMP;
+    DBMS_OUTPUT.PUT_LINE('Request End: ' || TO_CHAR(l_request_end, 'HH24:MI:SS.FF3'));
     
-    -- Get Response
+    -- Response Phase Timing
+    l_response_start := SYSTIMESTAMP;
+    DBMS_OUTPUT.PUT_LINE('Response Start: ' || TO_CHAR(l_response_start, 'HH24:MI:SS.FF3'));
+    
     l_http_response := UTL_HTTP.GET_RESPONSE(l_http_request);
     
-    -- Read Response
     DBMS_LOB.CREATETEMPORARY(l_response_text, TRUE);
     
     BEGIN
@@ -86,14 +96,13 @@ BEGIN
             NULL;
     END;
     
-    -- Record End Time
+    l_response_end := SYSTIMESTAMP;
+    DBMS_OUTPUT.PUT_LINE('Response End: ' || TO_CHAR(l_response_end, 'HH24:MI:SS.FF3'));
+    
     l_end_time := SYSTIMESTAMP;
     
-    -- Calculate Elapsed Time in Milliseconds
-    l_elapsed_ms := EXTRACT(SECOND FROM (l_end_time - l_start_time)) * 1000 +
-                    EXTRACT(MINUTE FROM (l_end_time - l_start_time)) * 60000;
-    
     -- Output Results
+    DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
     DBMS_OUTPUT.PUT_LINE('RESPONSE:');
     DBMS_OUTPUT.PUT_LINE('HTTP Status Code: ' || l_http_response.status_code);
     DBMS_OUTPUT.PUT_LINE('HTTP Reason: ' || l_http_response.reason_phrase);
@@ -101,25 +110,24 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('RESPONSE PAYLOAD:');
     DBMS_OUTPUT.PUT_LINE(DBMS_LOB.SUBSTR(l_response_text, 4000, 1));
     DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
-    DBMS_OUTPUT.PUT_LINE('End Time: ' || TO_CHAR(l_end_time, 'DD-MON-YYYY HH24:MI:SS.FF3'));
-    DBMS_OUTPUT.PUT_LINE('RESPONSE TIME: ' || l_elapsed_ms || ' ms');
+    DBMS_OUTPUT.PUT_LINE('TIMING SUMMARY:');
+    DBMS_OUTPUT.PUT_LINE('  Request Time : ' || 
+        ROUND(EXTRACT(SECOND FROM (l_request_end - l_request_start)) * 1000, 2) || ' ms');
+    DBMS_OUTPUT.PUT_LINE('  Response Time: ' || 
+        ROUND(EXTRACT(SECOND FROM (l_response_end - l_response_start)) * 1000, 2) || ' ms');
+    DBMS_OUTPUT.PUT_LINE('  Total Time   : ' || 
+        ROUND(EXTRACT(SECOND FROM (l_end_time - l_start_time)) * 1000, 2) || ' ms');
     DBMS_OUTPUT.PUT_LINE('===========================================');
     
-    -- Close Response
     UTL_HTTP.END_RESPONSE(l_http_response);
-    
-    -- Free CLOB
     DBMS_LOB.FREETEMPORARY(l_response_text);
     
 EXCEPTION
-    WHEN UTL_HTTP.TOO_MANY_REQUESTS THEN
-        DBMS_OUTPUT.PUT_LINE('ERROR: Too many requests');
-        UTL_HTTP.END_RESPONSE(l_http_response);
     WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
         DBMS_OUTPUT.PUT_LINE('ERROR: ' || SQLERRM);
         DBMS_OUTPUT.PUT_LINE('Error Code: ' || SQLCODE);
-        IF l_http_response.status_code IS NOT NULL THEN
-            UTL_HTTP.END_RESPONSE(l_http_response);
-        END IF;
+        DBMS_OUTPUT.PUT_LINE('Detailed Error: ' || UTL_HTTP.GET_DETAILED_SQLERRM);
+        DBMS_OUTPUT.PUT_LINE('-------------------------------------------');
 END;
 /
